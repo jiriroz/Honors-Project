@@ -1,4 +1,4 @@
-#Notes
+# Notes
 * Account for unusual events? http://gothamist.com/2015/02/26/jfk_runway_bye_bye.php
 * Compute delay per airport separately or make airport be one of the variables? Same with airline
 * Which years to use? Is performance consistent year to year, month to month?
@@ -17,7 +17,7 @@
 * Cancelled flights: Passengers need to be put on the next flight, which causes the passengers of that flight be put on the next one and so on. Can we simulate this? How to account for cancelled flights in general? (look at 538 analysis)
 * Should we predict delay events independently or together as a single event?
 
-#Possible features
+# Possible features
 * Month of year
 * Day of week
 * Time of day (hour) of departure and arrival
@@ -31,13 +31,13 @@
 
 Some features may be correlated (airport and weather)
 
-#Network model
+# Network model
 * Simulate every flight or only the queried one? (depends on whether they’re dependent)
 
 
 
 
-#Project Description
+# Project Description
 * Create a model to predict delays for near-future commercial flights in the U.S. More specifically:
 * Given a flight, estimate the duration of its delay
 * Will be focusing on near-future flights (several days into the future). This is because we can get weather forecast. However, potentially allow capability to predict for long-term future flights with higher uncertainty.
@@ -48,25 +48,25 @@ Some features may be correlated (airport and weather)
 * Finally, build a website/app allowing users to enter a flight and get the expected delay.
 
 
-#Project Plan
+# Project Plan
 * Identify data sources
-..* For flight delay prediction - historical about flights, delays, and weather
-..* For delay propagation - flight routes
-..* For real-time prediction - flight schedules, tracking, weather forecasts
+  * For flight delay prediction - historical about flights, delays, and weather
+  * For delay propagation - flight routes
+  * For real-time prediction - flight schedules, tracking, weather forecasts
 * Create a model for delay prediction for a single flight
-..* In a more abstract way, we are predicting occurrences of several different kinds of events. Each kind of event has a different probability of occurrence and causes a delay of different duration.
-..* Get, process the data.
-..* Perform exploratory data analysis
-..* Experiment with different kinds of models and see which one works best.
+  * In a more abstract way, we are predicting occurrences of several different kinds of events. Each kind of event has a different probability of occurrence and causes a delay of different duration.
+  * Get, process the data.
+  * Perform exploratory data analysis
+  * Experiment with different kinds of models and see which one works best.
 * Create a model for delay propagation
 * Combine delay prediction and propagation
-..* Predict delay events happening and simulate their propagation throughout the flight network.
+  * Predict delay events happening and simulate their propagation throughout the flight network.
 * Implement real-time version of the model
-..* Get the latest flight schedule and flight tracking data
-..* Get the weather forecast data
-..* Identify other real-time data sources I could use.
-..* Using these, simulate our model and predict flight delays several days into the future
+  * Get the latest flight schedule and flight tracking data
+  * Get the weather forecast data
+  * Identify other real-time data sources I could use.
+  * Using these, simulate our model and predict flight delays several days into the future
 * Create a website/app that allows users to use our model interactively
-..* The interface will allow users to enter a flight, and it will display the predicted delay.
+  * The interface will allow users to enter a flight, and it will display the predicted delay.
 
 
