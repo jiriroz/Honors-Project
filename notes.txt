@@ -35,3 +35,39 @@ Carrier: AA, flights: 3241287, avg delay: 5.496560471195547
 Carrier: VX, flights: 300409, avg delay: 5.344690072534445
 Carrier: MQ, flights: 1600338, avg delay: 7.459409199806541
 
+Month: 1, avg delay: 4.393660977865197
+Month: 2, avg delay: 3.9291789849133596
+Month: 3, avg delay: 4.136464657034468
+Month: 4, avg delay: 3.0655854161854226
+Month: 5, avg delay: 4.312400155111075
+Month: 6, avg delay: 9.188938783044623
+Month: 7, avg delay: 9.09501771829545
+Month: 8, avg delay: 6.283240104912506
+Month: 9, avg delay: 1.6070121213997468
+Month: 10, avg delay: 1.8252095664693648
+Month: 11, avg delay: 0.9318465973040123
+Month: 12, avg delay: 8.075578208629096
+
+Day: 1 (Mo), avg delay: 5.669010779440647
+Day: 2, avg delay: 3.8696323318153283
+Day: 3, avg delay: 4.243740143957588
+Day: 4, avg delay: 6.497175889243529
+Day: 5, avg delay: 6.267041156046281
+Day: 6, avg delay: 2.2393941653234397
+Day: 7, avg delay: 4.313667499195137
+
+
+Correlations:
+weather with carrier: -0.0448431914794342
+nas with carrier: -0.1156669873379839
+nas with weather: -0.0020508095401930086
+security with carrier: -0.011217137022724706
+security with weather: -0.004145286466907141
+security with nas: -0.009862425374733075
+late with carrier: -0.10843666850704484
+late with weather: -0.022195036737729674
+late with nas: -0.1498760536935674
+late with security: -0.009654901611893954
+
+
+
