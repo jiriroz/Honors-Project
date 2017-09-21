@@ -1,0 +1,37 @@
+Discard rows with no dep_time, arr_time
+
+Delays sum up to arrival delay - yes
+
+FLIGHTS always 1
+
+28329565 cases where arrival delay is known but reason isn't, 6590120 where both are known.
+Every time delay reasons are know, they correctly sum up to arrival delay
+
+
+Average yearly delay:
+2012 3.108298798608179
+2013 5.906902633526557
+2014 7.149986313988547
+2015 4.32748223559089
+2016 3.469477494001949
+
+
+Total carriers: 17
+Carrier: OO, flights: 3051431, avg delay: 5.329306807199639
+Carrier: WN, flights: 6007171, avg delay: 5.541622171235012
+Carrier: UA, flights: 2591361, avg delay: 4.4786210798109565
+Carrier: 9E, flights: 296701, avg delay: 2.9045908170178056
+Carrier: YV, flights: 274898, avg delay: 4.686123580382542
+Carrier: FL, flights: 471609, avg delay: 2.3306913142030794
+Carrier: HA, flights: 374188, avg delay: 0.5453969662308786
+Carrier: F9, flights: 426298, avg delay: 10.646238077588917
+Carrier: US, flights: 1430016, avg delay: 1.8437472028284998
+Carrier: AS, flights: 812370, avg delay: -1.2839494319091054
+Carrier: EV, flights: 3238539, avg delay: 8.176550290115388
+Carrier: B6, flights: 1270047, avg delay: 7.045682561354028
+Carrier: DL, flights: 4080551, avg delay: 0.5877912076089724
+Carrier: NK, flights: 255578, avg delay: 11.463502335881806
+Carrier: AA, flights: 3241287, avg delay: 5.496560471195547
+Carrier: VX, flights: 300409, avg delay: 5.344690072534445
+Carrier: MQ, flights: 1600338, avg delay: 7.459409199806541
+
