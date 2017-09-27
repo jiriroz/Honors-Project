@@ -1,6 +1,24 @@
+import csv
 import numpy as np
+from sklearn import linear_model
+from sklearn.metrics import mean_squared_error, r2_score
 
 from header import *
+
+TRAIN_FILE = "data/train.csv"
+VAL_FILE = "data/val.csv"
+#TEST_FILE = "data/test.csv" #off limits
+
+def main():
+    ntrain = 100000
+    ntest = 20000
+    feats = [DAY_OF_WEEK] #Can we predict nas delay by day of week?
+
+    model = Model("NasModelLinear", NAS_DELAY, feats)
+    model.trainLinearModel(TRAIN_FILE, ntrain)
+    model.predictLinearModel(VAL_FILE, ntest)
+
+
 
 class Predictor(object):
 
@@ -58,22 +76,46 @@ class Predictor(object):
         return 0.0
 
 class Model(object):
-    def __init__(self, name, index, features):
-        self.index = index
+    def __init__(self, name, yIndex, features):
+        self.yIndex = yIndex
         self.name = name
         self.features = features
 
-    def trainLinearModel(self, csvFile, nExamples):
+    def trainLinearModel(self, fname, nExamples):
 
+        X = np.zeros((nExamples, len(self.features)), dtype=np.float64)
+        Y = np.zeros(nExamples, dtype=np.float64)
         n = 0
-        for row in iterData(csvFile):
+        for row in iterData(fname):
             if n >= nExamples:
                 break
+            Y[n] = row[self.yIndex]
+            for i in range(len(self.features)):
+                X[n][i] = row[self.features[i]]
             n += 1
+        self.regr = linear_model.LinearRegression()
+        self.regr.fit(X, Y)
 
+    def predictLinearModel(self, fname, nExamples):
+        X = np.zeros((nExamples, len(self.features)), dtype=np.float64)
+        Y = np.zeros(nExamples, dtype=np.float64)
+        n = 0
+        for row in iterData(fname):
+            if n >= nExamples:
+                break
+            Y[n] = row[self.yIndex]
+            for i in range(len(self.features)):
+                X[n][i] = row[self.features[i]]
+            n += 1
+        pred = self.regr.predict(X)
+        print("Mean squared error: %.2f"
+              % mean_squared_error(Y, pred))
+        # 1 is perfect prediction
+        print('Variance score: %.2f' % r2_score(Y, pred))
 
 def iterData(fname):
     #Helper generator to read from csv files
+    #Return preprocessed row
     with open(fname, "r") as csvfile:
         reader = csv.reader(csvfile)
         first = True
@@ -81,8 +123,18 @@ def iterData(fname):
             if first:
                 first = False
                 continue
-            yield row
+            yield preprocess(row)
+
+def preprocess(row):
+    row[DAY_OF_WEEK] = int(row[DAY_OF_WEEK])
+    for delay in ALL_DELAYS:
+        if row[delay] == "":
+            row[delay] = 0.0
+        else:
+            row[delay] = float(row[delay])
+    return row
 
 
 
-
+if __name__ == "__main__":
+    main()
