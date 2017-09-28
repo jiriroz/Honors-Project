@@ -19,7 +19,6 @@ def main():
     model.predictLinearModel(VAL_FILE, ntest)
 
 
-
 class Predictor(object):
 
     def __init__(self):
@@ -127,11 +126,10 @@ def iterData(fname):
 
 def preprocess(row):
     row[DAY_OF_WEEK] = int(row[DAY_OF_WEEK])
-    for delay in ALL_DELAYS:
-        if row[delay] == "":
-            row[delay] = 0.0
-        else:
-            row[delay] = float(row[delay])
+    for feat in FLOAT_FEATURES:
+        row[feat] = float(row[feat])
+    for feat in INT_FEATURES:
+        row[feat] = int(row[feat])
     return row
 
 
