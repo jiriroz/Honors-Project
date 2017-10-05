@@ -18,14 +18,59 @@ MONTH = HEADER.index("MONTH")
 DAY_OF_WEEK = HEADER.index("DAY_OF_WEEK")
 DEP_TIME = HEADER.index("DEP_TIME")
 ARR_TIME = HEADER.index("ARR_TIME")
+CRS_DEP_TIME = HEADER.index("CRS_DEP_TIME")
+CRS_ARR_TIME = HEADER.index("CRS_ARR_TIME")
+
+from header import *
 
 DELAYS = [CARRIER_DELAY, WEATHER_DELAY, NAS_DELAY, SECURITY_DELAY, LATE_AIRCRAFT_DELAY]
 
-def main():
-    datadir = "data/"
+REQ_FIELDS = [DEP_TIME, ARR_TIME, CRS_DEP_TIME, CRS_ARR_TIME, DEP_DELAY, ARR_DELAY]
+
+def categoricalVars():
+    with open("data/all.csv", "r") as csvfile:
+        reader = csv.reader(csvfile)
+        i = -1
+        #AIRLINE_ID, ORIGIN_AIRPORT_ID + DEST_AIRPORT_ID,
+        #ORIGIN_CITY_MARKET_ID + DEST_CITY_MARKET_ID
+        airline, airlinect = dict(), 0
+        airport, airportct = dict(), 0
+        city, cityct = dict(), 0
+        for row in reader:
+            i += 1
+            if i == 0:
+                continue
+            if i % 10000000 == 0:
+                print (i)
+            if row[AIRLINE_ID] not in airline:
+                airline[row[AIRLINE_ID]] = airlinect
+                airlinect += 1
+            if row[ORIGIN_AIRPORT_ID] not in airport:
+                airport[row[ORIGIN_AIRPORT_ID]] = airportct
+                airportct += 1
+            if row[DEST_AIRPORT_ID] not in airport:
+                airport[row[DEST_AIRPORT_ID]] = airportct
+                airportct += 1
+            if row[ORIGIN_CITY_MARKET_ID] not in city:
+                city[row[ORIGIN_CITY_MARKET_ID]] = cityct
+                cityct += 1
+            if row[DEST_CITY_MARKET_ID] not in city:
+                city[row[DEST_CITY_MARKET_ID]] = cityct
+                cityct += 1
+        print (airlinect)
+        print (airportct)
+        print (cityct)
+        pickle.dump(airline, open("airline.p", "wb"))
+        pickle.dump(airport, open("airport.p", "wb"))
+        pickle.dump(city, open("city.p", "wb"))
+        
+                
+
+def aggregate():
+    datadir = "data_raw/"
     datafiles = [x for x in os.listdir(datadir) if x[0] != "." and x[-3:] == "csv"]
 
-    totalct = 0.0
+    totalct = 0
     poscases = 0
     negcases = 0
 
@@ -39,70 +84,35 @@ def main():
     late_aircraft_delay = []
 
     filect = 0
+
+    agg_file = open("data/_all.csv", "w")
+    agg_writer = csv.writer(agg_file)
+    agg_writer.writerow(HEADER[:-1])
+
     for fname in datafiles:
         #if filect == 1:
         #    break
         filect += 1
-        yr = int(fname[:4])
-        if yr not in years:
-            continue
+        #yr = int(fname[:4])
+        #if yr not in years:
+        #    continue
         with open(datadir + fname, "r") as csvfile:
             reader = csv.reader(csvfile)
             i = -1
             total = 0.0
-            totalct = 0
             print (fname)
             for row in reader:
                 if i == -1:
                     i = 0
                     continue
+                if any([row[x] == "" for x in REQ_FIELDS]):
+                    continue
+                agg_writer.writerow(row[:-1])
                 i += 1
-                if row[DEP_TIME] == "" or row[ARR_TIME] == "":
-                    continue
-                if all([row[x] == "" for x in DELAYS]):
-                    continue
-                delays = dict()
-                for x in DELAYS:
-                    if row[x] == "":
-                        delays[x] = 0.0
-                    else:
-                        delays[x] = float(row[x])
-                carrier_delay.append(delays[CARRIER_DELAY])
-                weather_delay.append(delays[WEATHER_DELAY])
-                nas_delay.append(delays[NAS_DELAY])
-                security_delay.append(delays[SECURITY_DELAY])
-                late_aircraft_delay.append(delays[LATE_AIRCRAFT_DELAY])
-                
-                arr_delay = 0.0
-                if row[ARR_DELAY] != "":
-                    arr_delay = float(row[ARR_DELAY])
-                dep_delay = 0.0
-                if row[DEP_DELAY] != "":
-                    dep_delay = float(row[DEP_DELAY])
-                total += arr_delay
-                
             totalct += i
-
-    carrier_delay = np.array(carrier_delay)
-    weather_delay = np.array(weather_delay)
-    nas_delay = np.array(nas_delay)
-    security_delay = np.array(security_delay)
-    late_aircraft_delay = np.array(late_aircraft_delay)
-
-    delays = [
-    carrier_delay,
-    weather_delay, 
-    nas_delay, 
-    security_delay, 
-    late_aircraft_delay]
-    delays = np.array(delays)
+    print ("Wrote {} rows".format(totalct))
+    agg_file.close()
     
-    del_names = ["carrier", "weather", "nas", "security", "late"]
-    for i in range(5):
-        for j in range(i):
-            corr = np.corrcoef(delays[i], delays[j])[0][1]
-            print ("{} with {}: {}".format(del_names[i], del_names[j], corr))
-
 
 if __name__ == "__main__":
-    main()
+    categoricalVars()

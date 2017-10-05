@@ -2,6 +2,7 @@ import csv
 import numpy as np
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.preprocessing import OneHotEncoder
 
 from header import *
 
@@ -130,6 +131,25 @@ def preprocess(row):
         row[feat] = float(row[feat])
     for feat in INT_FEATURES:
         row[feat] = int(row[feat])
+    #convert categorical variables to indicator variables
+    for feat in CATEG_VARS:
+        row[feat] = CATEG_VARS[feat][row[feat]]
+    featRow = []
+    categIndices = []
+    nValues = []
+    for feat in ALL_FEATURES:
+        featRow.append(row[feat])
+        if feat in CATEG_VARS:
+            categIndices.append(len(row) - 1)
+            nValues.append(len(CATEG_VARS[feat].keys()))
+        else:
+            nValues.append(0)
+        
+    enc = OneHotEncoder(n_values=nValues, categorical_features=categIndices) #make property variable
+    featRow = enc.transform([featRow]).toarray()[0]
+    
+    
+        
     return row
 
 
