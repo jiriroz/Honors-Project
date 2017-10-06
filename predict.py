@@ -1,4 +1,5 @@
 import csv
+import math
 import numpy as np
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
@@ -134,24 +135,34 @@ def preprocess(row):
     #convert categorical variables to indicator variables
     for feat in CATEG_VARS:
         row[feat] = CATEG_VARS[feat][row[feat]]
+    row[CRS_DEP_TIME] = int(row[CRS_DEP_TIME] / 100) #extract hours
+    row[CRS_ARR_TIME] = int(row[CRS_ARR_TIME] / 100)
     featRow = []
     categIndices = []
     nValues = []
     for feat in ALL_FEATURES:
-        featRow.append(row[feat])
-        if feat in CATEG_VARS:
+        if feat in TIME_VARS:
+            a, b = convertTimeVariable(row[feat], TIME_VARS[feat])
+            featRow.append(a)
+            featRow.append(b)
+            nValues.append(0)
+            nValues.append(0)
+        elif feat in CATEG_VARS:
             categIndices.append(len(row) - 1)
             nValues.append(len(CATEG_VARS[feat].keys()))
+            featRow.append(row[feat])
         else:
             nValues.append(0)
+            featRow.append(row[feat])
         
     enc = OneHotEncoder(n_values=nValues, categorical_features=categIndices) #make property variable
     featRow = enc.transform([featRow]).toarray()[0]
-    
-    
         
     return row
 
+def convertTimeVariable(t, period):
+    return math.sin(2 * math.pi * t / period),
+           math.cos(2 * math.pi * t / period)
 
 
 if __name__ == "__main__":
