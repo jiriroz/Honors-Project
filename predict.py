@@ -10,6 +10,8 @@ from header import *
 TRAIN_FILE = "data/train.csv"
 VAL_FILE = "data/val.csv"
 #TEST_FILE = "data/test.csv" #off limits
+SMALL_FILE = "sample.csv"
+ONE_ROW = "onerow.csv"
 
 def main():
     ntrain = 100000
@@ -17,8 +19,8 @@ def main():
     feats = [DAY_OF_WEEK] #Can we predict nas delay by day of week?
 
     model = Model("NasModelLinear", NAS_DELAY, feats)
-    model.trainLinearModel(TRAIN_FILE, ntrain)
-    model.predictLinearModel(VAL_FILE, ntest)
+    model.trainLinearModel(ONE_ROW, ntrain)
+    #model.predictLinearModel(VAL_FILE, ntest)
 
 
 class Predictor(object):
@@ -90,6 +92,7 @@ class Model(object):
         for row in iterData(fname):
             if n >= nExamples:
                 break
+            print (row)
             Y[n] = row[self.yIndex]
             for i in range(len(self.features)):
                 X[n][i] = row[self.features[i]]
@@ -127,21 +130,22 @@ def iterData(fname):
             yield preprocess(row)
 
 def preprocess(row):
-    row[DAY_OF_WEEK] = int(row[DAY_OF_WEEK])
     for feat in FLOAT_FEATURES:
         row[feat] = float(row[feat])
     for feat in INT_FEATURES:
-        row[feat] = int(row[feat])
+        row[feat] = int(float(row[feat]))
     #convert categorical variables to indicator variables
     for feat in CATEG_VARS:
         row[feat] = CATEG_VARS[feat][row[feat]]
-    row[CRS_DEP_TIME] = int(row[CRS_DEP_TIME] / 100) #extract hours
-    row[CRS_ARR_TIME] = int(row[CRS_ARR_TIME] / 100)
+    row[CRS_DEP_TIME] = int(row[CRS_DEP_TIME]) / 100 #extract hours
+    row[CRS_ARR_TIME] = int(row[CRS_ARR_TIME]) / 100
     featRow = []
     categIndices = []
     nValues = []
     for feat in ALL_FEATURES:
+        print ("Processing feature ", feat)
         if feat in TIME_VARS:
+            print ("Time variable")
             a, b = convertTimeVariable(row[feat], TIME_VARS[feat])
             featRow.append(a)
             featRow.append(b)
@@ -151,18 +155,19 @@ def preprocess(row):
             categIndices.append(len(row) - 1)
             nValues.append(len(CATEG_VARS[feat].keys()))
             featRow.append(row[feat])
+            print ("Categorical variable, n values: ", nValues[-1])
         else:
+            print ("Numerical variable")
             nValues.append(0)
             featRow.append(row[feat])
         
     enc = OneHotEncoder(n_values=nValues, categorical_features=categIndices) #make property variable
-    featRow = enc.transform([featRow]).toarray()[0]
+    featRow = enc.transform([featRow])[0]
         
-    return row
+    return featRow
 
 def convertTimeVariable(t, period):
-    return math.sin(2 * math.pi * t / period),
-           math.cos(2 * math.pi * t / period)
+    return math.sin(2 * math.pi * t / period), math.cos(2 * math.pi * t / period)
 
 
 if __name__ == "__main__":
