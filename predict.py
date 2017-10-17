@@ -3,9 +3,9 @@ import math
 import numpy as np
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.preprocessing import OneHotEncoder
 
 from header import *
+from one_hot_encoder import MyOneHotEncoder
 
 TRAIN_FILE = "data/train.csv"
 VAL_FILE = "data/val.csv"
@@ -134,13 +134,12 @@ def preprocess(row):
         row[feat] = float(row[feat])
     for feat in INT_FEATURES:
         row[feat] = int(float(row[feat]))
-    #convert categorical variables to indicator variables
     for feat in CATEG_VARS:
+        #map categorical features so that they are in [0, number of values)
         row[feat] = CATEG_VARS[feat][row[feat]]
-    row[CRS_DEP_TIME] = int(row[CRS_DEP_TIME]) / 100 #extract hours
-    row[CRS_ARR_TIME] = int(row[CRS_ARR_TIME]) / 100
+    row[CRS_DEP_TIME] = int(int(row[CRS_DEP_TIME]) / 100) #extract hours
+    row[CRS_ARR_TIME] = int(int(row[CRS_ARR_TIME]) / 100)
     featRow = []
-    categIndices = []
     nValues = []
     for feat in ALL_FEATURES:
         print ("Processing feature ", feat)
@@ -152,7 +151,6 @@ def preprocess(row):
             nValues.append(0)
             nValues.append(0)
         elif feat in CATEG_VARS:
-            categIndices.append(len(row) - 1)
             nValues.append(len(CATEG_VARS[feat].keys()))
             featRow.append(row[feat])
             print ("Categorical variable, n values: ", nValues[-1])
@@ -161,9 +159,11 @@ def preprocess(row):
             nValues.append(0)
             featRow.append(row[feat])
         
-    enc = OneHotEncoder(n_values=nValues, categorical_features=categIndices) #make property variable
-    featRow = enc.transform([featRow])[0]
-        
+    print ("Performing one hot encoding")
+    print ("Number of features:", len(nValues))
+    print ("N values", nValues)
+    enc = MyOneHotEncoder(nValues=nValues) #make property variable
+    featRow = enc.transform(featRow)
     return featRow
 
 def convertTimeVariable(t, period):
