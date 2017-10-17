@@ -85,39 +85,39 @@ class Model(object):
         self.features = features
 
     def trainLinearModel(self, fname, nExamples):
-
-        X = np.zeros((nExamples, len(self.features)), dtype=np.float64)
-        Y = np.zeros(nExamples, dtype=np.float64)
-        n = 0
-        for row in iterData(fname):
-            if n >= nExamples:
+        X = []
+        Y = []
+        index = 0
+        for (x, y) in iterData(fname, self.features, self.yIndex):
+            if index >= nExamples:
                 break
-            print (row)
-            Y[n] = row[self.yIndex]
-            for i in range(len(self.features)):
-                X[n][i] = row[self.features[i]]
-            n += 1
+            X.append(x)
+            Y.append(y)
+            index += 1
+        X = np.array(x)
+        Y = np.array(y)
         self.regr = linear_model.LinearRegression()
         self.regr.fit(X, Y)
 
     def predictLinearModel(self, fname, nExamples):
-        X = np.zeros((nExamples, len(self.features)), dtype=np.float64)
-        Y = np.zeros(nExamples, dtype=np.float64)
-        n = 0
-        for row in iterData(fname):
-            if n >= nExamples:
+        X = []
+        Y = []
+        index = 0
+        for (x, y) in iterData(fname, self.features, self.yIndex):
+            if index >= nExamples:
                 break
-            Y[n] = row[self.yIndex]
-            for i in range(len(self.features)):
-                X[n][i] = row[self.features[i]]
-            n += 1
+            X.append(x)
+            Y.append(y)
+            index += 1
+        X = np.array(x)
+        Y = np.array(y)
         pred = self.regr.predict(X)
         print("Mean squared error: %.2f"
               % mean_squared_error(Y, pred))
         # 1 is perfect prediction
         print('Variance score: %.2f' % r2_score(Y, pred))
 
-def iterData(fname):
+def iterData(fname, features, yIndex):
     #Helper generator to read from csv files
     #Return preprocessed row
     with open(fname, "r") as csvfile:
@@ -127,9 +127,9 @@ def iterData(fname):
             if first:
                 first = False
                 continue
-            yield preprocess(row)
+            yield preprocess(row, features, yIndex)
 
-def preprocess(row):
+def preprocess(row, features, yIndex):
     for feat in FLOAT_FEATURES:
         row[feat] = float(row[feat])
     for feat in INT_FEATURES:
@@ -141,7 +141,8 @@ def preprocess(row):
     row[CRS_ARR_TIME] = int(int(row[CRS_ARR_TIME]) / 100)
     featRow = []
     nValues = []
-    for feat in ALL_FEATURES:
+    #for feat in ALL_FEATURES:
+    for feat in features:
         print ("Processing feature ", feat)
         if feat in TIME_VARS:
             print ("Time variable")
@@ -164,7 +165,8 @@ def preprocess(row):
     print ("N values", nValues)
     enc = MyOneHotEncoder(nValues=nValues) #make property variable
     featRow = enc.transform(featRow)
-    return featRow
+    y = row[yIndex]
+    return featRow, y
 
 def convertTimeVariable(t, period):
     return math.sin(2 * math.pi * t / period), math.cos(2 * math.pi * t / period)
