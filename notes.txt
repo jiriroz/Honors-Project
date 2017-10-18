@@ -1,4 +1,4 @@
-Discard rows with no dep_time, arr_time
+Discard rows with no dep_time, arr_time, crs dep and arr time, dep delay, arr delay
 
 Delays sum up to arrival delay - yes
 
@@ -68,6 +68,15 @@ late with carrier: -0.10843666850704484
 late with weather: -0.022195036737729674
 late with nas: -0.1498760536935674
 late with security: -0.009654901611893954
+
+Size of data:
+34919683 samples
+24443779 training (70 %)
+5237952 validation (15 %)
+5237952 testing (15 %)
+
+
+Inputted 0 for missing values in all 5 delay types.
 
 
 

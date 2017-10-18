@@ -7,6 +7,8 @@ from sklearn.metrics import mean_squared_error, r2_score
 from header import *
 from one_hot_encoder import MyOneHotEncoder
 
+LOGGING = True
+
 TRAIN_FILE = "data/train.csv"
 VAL_FILE = "data/val.csv"
 #TEST_FILE = "data/test.csv" #off limits
@@ -14,13 +16,13 @@ SMALL_FILE = "sample.csv"
 ONE_ROW = "onerow.csv"
 
 def main():
-    ntrain = 100000
-    ntest = 20000
-    feats = [DAY_OF_WEEK] #Can we predict nas delay by day of week?
+    ntrain = 10000
+    ntest = 1000
+    feats = [DEP_DELAY]
 
-    model = Model("NasModelLinear", NAS_DELAY, feats)
-    model.trainLinearModel(ONE_ROW, ntrain)
-    #model.predictLinearModel(VAL_FILE, ntest)
+    model = Model("NasModelLinear", ARR_DELAY, feats)
+    model.trainLinearModel(TRAIN_FILE, ntrain)
+    model.predictLinearModel(VAL_FILE, ntest)
 
 
 class Predictor(object):
@@ -94,8 +96,11 @@ class Model(object):
             X.append(x)
             Y.append(y)
             index += 1
-        X = np.array(x)
-        Y = np.array(y)
+        X = np.array(X)
+        Y = np.array(Y)
+        if LOGGING:
+            print ("X", X)
+            print ("Y", Y)
         self.regr = linear_model.LinearRegression()
         self.regr.fit(X, Y)
 
@@ -109,13 +114,13 @@ class Model(object):
             X.append(x)
             Y.append(y)
             index += 1
-        X = np.array(x)
-        Y = np.array(y)
+        X = np.array(X)
+        Y = np.array(Y)
         pred = self.regr.predict(X)
         print("Mean squared error: %.2f"
               % mean_squared_error(Y, pred))
         # 1 is perfect prediction
-        print('Variance score: %.2f' % r2_score(Y, pred))
+        print('R squared: %.2f' % r2_score(Y, pred))
 
 def iterData(fname, features, yIndex):
     #Helper generator to read from csv files
@@ -141,11 +146,10 @@ def preprocess(row, features, yIndex):
     row[CRS_ARR_TIME] = int(int(row[CRS_ARR_TIME]) / 100)
     featRow = []
     nValues = []
-    #for feat in ALL_FEATURES:
     for feat in features:
-        print ("Processing feature ", feat)
+        #print ("Processing feature ", feat)
         if feat in TIME_VARS:
-            print ("Time variable")
+            #print ("Time variable")
             a, b = convertTimeVariable(row[feat], TIME_VARS[feat])
             featRow.append(a)
             featRow.append(b)
@@ -154,15 +158,15 @@ def preprocess(row, features, yIndex):
         elif feat in CATEG_VARS:
             nValues.append(len(CATEG_VARS[feat].keys()))
             featRow.append(row[feat])
-            print ("Categorical variable, n values: ", nValues[-1])
+            #print ("Categorical variable, n values: ", nValues[-1])
         else:
-            print ("Numerical variable")
+            #print ("Numerical variable")
             nValues.append(0)
             featRow.append(row[feat])
         
-    print ("Performing one hot encoding")
-    print ("Number of features:", len(nValues))
-    print ("N values", nValues)
+    #print ("Performing one hot encoding")
+    #print ("Number of features:", len(nValues))
+    #print ("N values", nValues)
     enc = MyOneHotEncoder(nValues=nValues) #make property variable
     featRow = enc.transform(featRow)
     y = row[yIndex]

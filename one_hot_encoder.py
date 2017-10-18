@@ -26,8 +26,6 @@ class MyOneHotEncoder(object):
             raise ValueError("The row contains {} number of values. It is supposed to contain {}".format(len(row), len(self.nValues)))
         transformedRow = np.zeros(self.rowLength)
         index = 0
-        print ("Transforming row, number of transformed features is", self.rowLength)
-
         for i in range(len(row)):
             if self.nValues[i] == 0:
                 transformedRow[index] = row[i]
