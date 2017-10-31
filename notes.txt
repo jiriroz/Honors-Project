@@ -75,8 +75,12 @@ Size of data:
 5237952 validation (15 %)
 5237952 testing (15 %)
 
+Shuffled data by performing k-way split, shuffling each part separately and randomly merging (too large for a direct shuffle).
 
 Inputted 0 for missing values in all 5 delay types.
+
+
+Making time variables categorical vs transforming them into a smooth variable doesn't seem to have an impact on performance.
 
 
 

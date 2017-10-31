@@ -7,7 +7,7 @@ from sklearn.metrics import mean_squared_error, r2_score
 from header import *
 from one_hot_encoder import MyOneHotEncoder
 
-LOGGING = True
+LOGGING = False
 
 TRAIN_FILE = "data/train.csv"
 VAL_FILE = "data/val.csv"
@@ -16,14 +16,14 @@ SMALL_FILE = "sample.csv"
 ONE_ROW = "onerow.csv"
 
 def main():
-    ntrain = 10000
-    ntest = 1000
-    feats = [DEP_DELAY]
+    ntrain = 1000000
+    ntest = 100000
+    feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, DISTANCE, AIRLINE_ID, ORIGIN_AIRPORT_ID, DEST_AIRPORT_ID, ORIGIN_CITY_MARKET_ID, DEST_CITY_MARKET_ID]
+    feats = [MONTH]
 
-    model = Model("NasModelLinear", ARR_DELAY, feats)
+    model = Model("NasModelLinear", WEATHER_DELAY, feats)
     model.trainLinearModel(TRAIN_FILE, ntrain)
     model.predictLinearModel(VAL_FILE, ntest)
-
 
 class Predictor(object):
 
@@ -98,6 +98,13 @@ class Model(object):
             index += 1
         X = np.array(X)
         Y = np.array(Y)
+        categ = dict()
+        #TODO: Check if data is properly shuffled
+        for row in X:
+            if row[0] not in categ:
+                categ[row[0]] = 0
+            categ[row[0]] += 1
+        print (categ)
         if LOGGING:
             print ("X", X)
             print ("Y", Y)
@@ -139,11 +146,11 @@ def preprocess(row, features, yIndex):
         row[feat] = float(row[feat])
     for feat in INT_FEATURES:
         row[feat] = int(float(row[feat]))
+    row[CRS_DEP_TIME] = int(int(row[CRS_DEP_TIME]) / 100) #extract hours
+    row[CRS_ARR_TIME] = int(int(row[CRS_ARR_TIME]) / 100)
     for feat in CATEG_VARS:
         #map categorical features so that they are in [0, number of values)
         row[feat] = CATEG_VARS[feat][row[feat]]
-    row[CRS_DEP_TIME] = int(int(row[CRS_DEP_TIME]) / 100) #extract hours
-    row[CRS_ARR_TIME] = int(int(row[CRS_ARR_TIME]) / 100)
     featRow = []
     nValues = []
     for feat in features:
