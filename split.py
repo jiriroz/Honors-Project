@@ -1,17 +1,23 @@
 import csv, random
 import sys
 import subprocess
+from header import *
 
-HEADER = ['YEAR', 'MONTH', 'DAY_OF_MONTH', 'DAY_OF_WEEK', 'UNIQUE_CARRIER', 'AIRLINE_ID', 'TAIL_NUM', 'FL_NUM', 'ORIGIN_AIRPORT_ID', 'ORIGIN_AIRPORT_SEQ_ID', 'ORIGIN_CITY_MARKET_ID', 'DEST_AIRPORT_ID', 'DEST_AIRPORT_SEQ_ID', 'DEST_CITY_MARKET_ID', 'CRS_DEP_TIME', 'DEP_TIME', 'DEP_DELAY', 'DEP_DELAY_NEW', 'DEP_DEL15', 'DEP_DELAY_GROUP', 'DEP_TIME_BLK', 'TAXI_OUT', 'WHEELS_OFF', 'WHEELS_ON', 'TAXI_IN', 'CRS_ARR_TIME', 'ARR_TIME', 'ARR_DELAY', 'ARR_DELAY_NEW', 'ARR_DEL15', 'ARR_DELAY_GROUP', 'ARR_TIME_BLK', 'CANCELLED', 'CANCELLATION_CODE', 'DIVERTED', 'CRS_ELAPSED_TIME', 'ACTUAL_ELAPSED_TIME', 'AIR_TIME', 'FLIGHTS', 'DISTANCE', 'DISTANCE_GROUP', 'CARRIER_DELAY', 'WEATHER_DELAY', 'NAS_DELAY', 'SECURITY_DELAY', 'LATE_AIRCRAFT_DELAY']
-
-def addHeader(fname):
+def inputMissing(fname):
+    print (fname)
     with open(fname, "r") as fr:
-        with open(fname + ".header", "w") as fw:
+        with open(fname + ".filled", "w") as fw:
             reader = csv.reader(fr)
-            writer(csv.writer(fw))
-            writer.writerow(HEADER)
+            writer = csv.writer(fw)
             for row in reader:
+                for i in ALL_DELAYS:
+                    if row[i] == "":
+                        row[i] = "0"
                 writer.writerow(row)
+    print ("Done " + fname)
+
+inputMissing(sys.argv[1])
+
 
 def shuffle(fname, N, k=5):
     # Shuffle a large csv file with N lines by performin a k-way

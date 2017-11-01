@@ -1,8 +1,10 @@
 import csv
 import math
+import matplotlib.pyplot as plt
 import numpy as np
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
+import time
 
 from header import *
 from one_hot_encoder import MyOneHotEncoder
@@ -16,14 +18,18 @@ SMALL_FILE = "sample.csv"
 ONE_ROW = "onerow.csv"
 
 def main():
-    ntrain = 1000000
+    ntrain = 100000
     ntest = 100000
     feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, DISTANCE, AIRLINE_ID, ORIGIN_AIRPORT_ID, DEST_AIRPORT_ID, ORIGIN_CITY_MARKET_ID, DEST_CITY_MARKET_ID]
-    feats = [MONTH]
-
-    model = Model("NasModelLinear", WEATHER_DELAY, feats)
-    model.trainLinearModel(TRAIN_FILE, ntrain)
-    model.predictLinearModel(VAL_FILE, ntest)
+    for delay in DELAY_TYPES:
+        for feat in feats:
+            t = time.time()
+            model = Model("ModelLinear", delay, [feat])
+            model.trainLinearModel(TRAIN_FILE, ntrain)
+            r2, mse = model.predictLinearModel(VAL_FILE, ntest)
+            print ("Feature {} on {}".format(featName(feat), featName(delay)))
+            print ("MSE: {}".format(mse))
+        print ()
 
 class Predictor(object):
 
@@ -98,13 +104,27 @@ class Model(object):
             index += 1
         X = np.array(X)
         Y = np.array(Y)
-        categ = dict()
-        #TODO: Check if data is properly shuffled
-        for row in X:
-            if row[0] not in categ:
-                categ[row[0]] = 0
-            categ[row[0]] += 1
-        print (categ)
+
+        self.categ = dict()
+        visualize = []
+        for i in range(len(X)):
+            row = X[i]
+            y = Y[i]
+            j = 0
+            for j in range(len(row)):
+                if row[j] == 1:
+                    break
+            if j not in self.categ:
+                self.categ[j] = [0, 0.0]
+            self.categ[j][0] += 1
+            self.categ[j][1] += y
+            if j == 18:
+                visualize.append(y)
+        for key in self.categ:
+            self.categ[key][1] /= self.categ[key][0]
+            if LOGGING:
+                print (key, self.categ[key][1])
+
         if LOGGING:
             print ("X", X)
             print ("Y", Y)
@@ -123,11 +143,28 @@ class Model(object):
             index += 1
         X = np.array(X)
         Y = np.array(Y)
+
+        categ = dict()
+        for i in range(len(X)):
+            row = X[i]
+            y = Y[i]
+            j = 0
+            for j in range(len(row)):
+                if row[j] == 1:
+                    break
+            if j not in categ:
+                categ[j] = [0, 0]
+            categ[j][0] += 1
+            categ[j][1] += y
+        for key in categ:
+            categ[key][1] /= categ[key][0]
+            if LOGGING:
+                print (key, categ[key][1])
+
         pred = self.regr.predict(X)
-        print("Mean squared error: %.2f"
-              % mean_squared_error(Y, pred))
-        # 1 is perfect prediction
-        print('R squared: %.2f' % r2_score(Y, pred))
+        r2 = r2_score(Y, pred)
+        mse = mean_squared_error(Y, pred)
+        return r2, mse
 
 def iterData(fname, features, yIndex):
     #Helper generator to read from csv files
