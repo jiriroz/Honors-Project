@@ -18,17 +18,31 @@ SMALL_FILE = "sample.csv"
 ONE_ROW = "onerow.csv"
 
 def main():
-    ntrain = 100000
-    ntest = 100000
-    feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, DISTANCE, AIRLINE_ID, ORIGIN_AIRPORT_ID, DEST_AIRPORT_ID, ORIGIN_CITY_MARKET_ID, DEST_CITY_MARKET_ID]
+    ntrain = 2000000
+    ntest = 200000
+    feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE, ORIGIN_AIRPORT_ID, DEST_AIRPORT_ID, ORIGIN_CITY_MARKET_ID, DEST_CITY_MARKET_ID]
+    selected_feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE]
+
+    print ("N train {}, N test {}".format(ntrain, ntest))
+
     for delay in DELAY_TYPES:
-        for feat in feats:
+        for feat in selected_feats:
             t = time.time()
             model = Model("ModelLinear", delay, [feat])
             model.trainLinearModel(TRAIN_FILE, ntrain)
             r2, mse = model.predictLinearModel(VAL_FILE, ntest)
             print ("Feature {} on {}".format(featName(feat), featName(delay)))
             print ("MSE: {}".format(mse))
+        print ()
+
+    print ("Features", ", ".join([featName(feat) for feat in selected_feats]))
+
+    for delay in DELAY_TYPES:
+        model = Model("ModelLinear", delay, selected_feats)
+        model.trainLinearModel(TRAIN_FILE, ntrain)
+        r2, mse = model.predictLinearModel(VAL_FILE, ntest)
+        print (featName(delay))
+        print ("MSE: {}".format(mse))
         print ()
 
 class Predictor(object):
@@ -106,7 +120,6 @@ class Model(object):
         Y = np.array(Y)
 
         self.categ = dict()
-        visualize = []
         for i in range(len(X)):
             row = X[i]
             y = Y[i]
@@ -118,8 +131,6 @@ class Model(object):
                 self.categ[j] = [0, 0.0]
             self.categ[j][0] += 1
             self.categ[j][1] += y
-            if j == 18:
-                visualize.append(y)
         for key in self.categ:
             self.categ[key][1] /= self.categ[key][0]
             if LOGGING:
@@ -128,6 +139,7 @@ class Model(object):
         if LOGGING:
             print ("X", X)
             print ("Y", Y)
+
         self.regr = linear_model.LinearRegression()
         self.regr.fit(X, Y)
 
