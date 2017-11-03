@@ -23,17 +23,29 @@ def main():
     ntrain = 5000000
     ntest = 1000000
     feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE, ORIGIN_AIRPORT_ID, DEST_AIRPORT_ID, ORIGIN_CITY_MARKET_ID, DEST_CITY_MARKET_ID]
+
     selected_feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE]
 
-    print ("N train {}, N test {}".format(ntrain, ntest))
-    model = Model("SimpleLinearModel", ARR_DELAY, selected_feats)
-    model.trainLinearModel(TRAIN_FILE, ntrain)
-    print ()
-    r2, mse = model.predictLinearModel(VAL_FILE, ntest)
-    print ("MSE: {}".format(mse))
-    print ()
-    print ("Took ", time.time() - t)
-    model.save()
+    total_delay = np.zeros(ntest)
+
+    for DELAY in DELAY_TYPES:
+        print ("N train {}, N test {}".format(ntrain, ntest))
+        model = Model("SimpleLinearModel", ARR_DELAY, selected_feats)
+        model.trainLinearModel(TRAIN_FILE, ntrain)
+        r2, mse, pred = model.predictLinearModel(VAL_FILE, ntest, retResult=True)
+        total_delay += pred
+    
+    Y = []
+    index = 0
+    for (x, y) in iterData(VAL_FILE, [0], ARR_DELAY):
+        if index >= ntest:
+            break
+        Y.append(y)
+        index += 1
+    Y = np.array(Y)
+
+    mse = sum((Y - total_delay) ** 2) / ntest
+    print ("MSE:", mse)
 
 
 class Predictor(object):
@@ -140,7 +152,7 @@ class Model(object):
         self.regr = linear_model.LinearRegression()
         self.regr.fit(X, Y)
 
-    def predictLinearModel(self, fname, nExamples):
+    def predictLinearModel(self, fname, nExamples, retResult=False):
         X = []
         Y = []
         index = 0
@@ -173,7 +185,10 @@ class Model(object):
         pred = self.regr.predict(X)
         r2 = r2_score(Y, pred)
         mse = mean_squared_error(Y, pred)
-        return r2, mse
+        if retResult:
+            return r2, mse, pred
+        else:
+            return r2, mse
 
 def iterData(fname, features, yIndex):
     #Helper generator to read from csv files
