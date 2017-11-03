@@ -2,6 +2,7 @@ import csv
 import math
 import matplotlib.pyplot as plt
 import numpy as np
+import pickle
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 import time
@@ -18,32 +19,22 @@ SMALL_FILE = "sample.csv"
 ONE_ROW = "onerow.csv"
 
 def main():
-    ntrain = 2000000
-    ntest = 200000
+    t = time.time()
+    ntrain = 5000000
+    ntest = 1000000
     feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE, ORIGIN_AIRPORT_ID, DEST_AIRPORT_ID, ORIGIN_CITY_MARKET_ID, DEST_CITY_MARKET_ID]
     selected_feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE]
 
     print ("N train {}, N test {}".format(ntrain, ntest))
+    model = Model("SimpleLinearModel", ARR_DELAY, selected_feats)
+    model.trainLinearModel(TRAIN_FILE, ntrain)
+    print ()
+    r2, mse = model.predictLinearModel(VAL_FILE, ntest)
+    print ("MSE: {}".format(mse))
+    print ()
+    print ("Took ", time.time() - t)
+    model.save()
 
-    for delay in DELAY_TYPES:
-        for feat in selected_feats:
-            t = time.time()
-            model = Model("ModelLinear", delay, [feat])
-            model.trainLinearModel(TRAIN_FILE, ntrain)
-            r2, mse = model.predictLinearModel(VAL_FILE, ntest)
-            print ("Feature {} on {}".format(featName(feat), featName(delay)))
-            print ("MSE: {}".format(mse))
-        print ()
-
-    print ("Features", ", ".join([featName(feat) for feat in selected_feats]))
-
-    for delay in DELAY_TYPES:
-        model = Model("ModelLinear", delay, selected_feats)
-        model.trainLinearModel(TRAIN_FILE, ntrain)
-        r2, mse = model.predictLinearModel(VAL_FILE, ntest)
-        print (featName(delay))
-        print ("MSE: {}".format(mse))
-        print ()
 
 class Predictor(object):
 
@@ -106,6 +97,12 @@ class Model(object):
         self.name = name
         self.features = features
 
+    def save(self):
+        pickle.dump(self.regr, open("models/{}.p".format(self.name), "wb"))
+
+    def load(self):
+        self.regr = pickle.load(open("models/{}.p".format(self.name), "rb"))
+
     def trainLinearModel(self, fname, nExamples):
         X = []
         Y = []
@@ -130,11 +127,11 @@ class Model(object):
             if j not in self.categ:
                 self.categ[j] = [0, 0.0]
             self.categ[j][0] += 1
-            self.categ[j][1] += y
-        for key in self.categ:
-            self.categ[key][1] /= self.categ[key][0]
-            if LOGGING:
-                print (key, self.categ[key][1])
+            if y > 15:
+                self.categ[j][1] += 1
+        #for key in self.categ:
+        #    self.categ[key][1] /= self.categ[key][0]
+        #    print (key, "Probability of delay", self.categ[key][1])
 
         if LOGGING:
             print ("X", X)
@@ -167,11 +164,11 @@ class Model(object):
             if j not in categ:
                 categ[j] = [0, 0]
             categ[j][0] += 1
-            categ[j][1] += y
-        for key in categ:
-            categ[key][1] /= categ[key][0]
-            if LOGGING:
-                print (key, categ[key][1])
+            if y > 15:
+                categ[j][1] += 1
+        #for key in categ:
+        #    categ[key][1] /= categ[key][0]
+        #    print (key, "Probability of delay", categ[key][1])
 
         pred = self.regr.predict(X)
         r2 = r2_score(Y, pred)
