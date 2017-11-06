@@ -3,6 +3,7 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
+import random
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 import time
@@ -17,35 +18,19 @@ VAL_FILE = "data/val.csv"
 #TEST_FILE = "data/test.csv" #off limits
 SMALL_FILE = "sample.csv"
 ONE_ROW = "onerow.csv"
+SORTED = "data/2016.csv"
 
 def main():
     t = time.time()
-    ntrain = 5000000
-    ntest = 1000000
+    ntrain = 500000
+    ntest = 100
     feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE, ORIGIN_AIRPORT_ID, DEST_AIRPORT_ID, ORIGIN_CITY_MARKET_ID, DEST_CITY_MARKET_ID]
 
     selected_feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE]
 
-    total_delay = np.zeros(ntest)
-
-    for DELAY in DELAY_TYPES:
-        print ("N train {}, N test {}".format(ntrain, ntest))
-        model = Model("SimpleLinearModel", ARR_DELAY, selected_feats)
-        model.trainLinearModel(TRAIN_FILE, ntrain)
-        r2, mse, pred = model.predictLinearModel(VAL_FILE, ntest, retResult=True)
-        total_delay += pred
-    
-    Y = []
-    index = 0
-    for (x, y) in iterData(VAL_FILE, [0], ARR_DELAY):
-        if index >= ntest:
-            break
-        Y.append(y)
-        index += 1
-    Y = np.array(Y)
-
-    mse = sum((Y - total_delay) ** 2) / ntest
-    print ("MSE:", mse)
+    model = Model("TemporalModel", ARR_DELAY, [DISTANCE])
+    for window in [1, 2, 4, 8, 16]:
+        model.temporalModel(SORTED, ntrain, window=window)
 
 
 class Predictor(object):
@@ -115,11 +100,48 @@ class Model(object):
     def load(self):
         self.regr = pickle.load(open("models/{}.p".format(self.name), "rb"))
 
+    def temporalModel(self, fname, nExamples, window=1):
+
+        flights = dict()
+        index = 0
+        for (x, y, row) in iterData(fname, self.features, self.yIndex):
+            if index >= nExamples:
+                break
+            flNum = getFlNum(row)
+            if flNum not in flights:
+                flights[flNum] = []
+            flights[flNum].append((x, y, row))
+            index += 1
+
+        print ("Number of flights: ", len(list(flights.keys())))
+        mse = 0
+        count = 0
+        
+        for flNum in flights:
+            n = len(flights[flNum])
+            if n < window + 1:
+                continue
+            count += 1
+            i = random.randint(window, n - 1)
+            prediction = 0.0
+            for j in range(i - 1, i - window - 1, -1):
+                prediction += flights[flNum][j][1]
+            prediction /= window
+            #print ("Predicted:", prediction, "actual:", flights[flNum][i][1])
+            mse += (prediction - flights[flNum][i][1]) ** 2
+        mse /= count
+        print ("Window size:", window)
+        print ("MSE:", mse)
+        print ()
+        
+
+
+
     def trainLinearModel(self, fname, nExamples):
         X = []
         Y = []
         index = 0
-        for (x, y) in iterData(fname, self.features, self.yIndex):
+        for (x, y, row) in iterData(fname, self.features, self.yIndex):
             if index >= nExamples:
                 break
             X.append(x)
@@ -156,7 +178,7 @@ class Model(object):
         X = []
         Y = []
         index = 0
-        for (x, y) in iterData(fname, self.features, self.yIndex):
+        for (x, y, row) in iterData(fname, self.features, self.yIndex):
             if index >= nExamples:
                 break
             X.append(x)
@@ -192,7 +214,7 @@ class Model(object):
 
 def iterData(fname, features, yIndex):
     #Helper generator to read from csv files
-    #Return preprocessed row
+    #Return preprocessed row as well as the original row
     with open(fname, "r") as csvfile:
         reader = csv.reader(csvfile)
         first = True
@@ -204,7 +226,11 @@ def iterData(fname, features, yIndex):
 
 def preprocess(row, features, yIndex):
     for feat in FLOAT_FEATURES:
-        row[feat] = float(row[feat])
+        try:
+            row[feat] = float(row[feat])
+        except Exception:
+            print (row[feat])
+            raise ValueError()
     for feat in INT_FEATURES:
         row[feat] = int(float(row[feat]))
     row[CRS_DEP_TIME] = int(int(row[CRS_DEP_TIME]) / 100) #extract hours
@@ -238,11 +264,13 @@ def preprocess(row, features, yIndex):
     enc = MyOneHotEncoder(nValues=nValues) #make property variable
     featRow = enc.transform(featRow)
     y = row[yIndex]
-    return featRow, y
+    return featRow, y, row
 
 def convertTimeVariable(t, period):
     return math.sin(2 * math.pi * t / period), math.cos(2 * math.pi * t / period)
 
+def getFlNum(row):
+    return row[4].strip() + row[7].strip()
 
 if __name__ == "__main__":
     main()
