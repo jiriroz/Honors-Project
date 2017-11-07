@@ -22,14 +22,15 @@ SORTED = "data/2016.csv"
 
 def main():
     t = time.time()
-    ntrain = 5000000
+    ntrain = 500000
     ntest = 100
     feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE, ORIGIN_AIRPORT_ID, DEST_AIRPORT_ID, ORIGIN_CITY_MARKET_ID, DEST_CITY_MARKET_ID]
 
     selected_feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE]
 
     model = Model("TemporalModel", ARR_DELAY, [DISTANCE])
-    model.temporalModel(SORTED, ntrain, window=1)
+
+    model.temporalModel(SORTED, ntrain, window=12)
 
 
 class Predictor(object):
@@ -118,8 +119,12 @@ class Model(object):
             index += 1
 
         print ("Number of flights: ", len(list(flights.keys())))
-        mse = 0
+        mse1 = 0
+        mse2 = 0
         count = 0
+
+        X_train, Y_train = [], []
+        X_test, Y_test = [], []
         
         for flNum in flights:
             n = len(flights[flNum])
@@ -129,19 +134,57 @@ class Model(object):
             for i in range(nTest):
                 count += 1
                 index = random.randint(window, n - 1)
-                prediction = 0.0
-                for j in range(index - 1, index - window - 1, -1):
-                    prediction += flights[flNum][j][1]
-                prediction /= window
+                prediction1 = 0.0
+                prediction2 = 0.0
+                prev = []
+                for j in range(window):
+                    prev.append(flights[flNum][index - j - 1][1])
+                    w = 0.8
+                    if j < int(window / 2):
+                        w = 1.2
+                    prediction1 += flights[flNum][index - j - 1][1]
+                    prediction2 += flights[flNum][index - j - 1][1] * w
+                prediction1 /= window
+                prediction2 /= window
                 #print ("Predicted:", prediction, "actual:", flights[flNum][index][1])
-                mse += (prediction - flights[flNum][index][1]) ** 2
+                mse1 += (prediction1 - flights[flNum][index][1]) ** 2
+                mse2 += (prediction2 - flights[flNum][index][1]) ** 2
 
-        mse /= count
+                if random.random() < 0.8:
+                    X_train.append(prev)
+                    Y_train.append(flights[flNum][index][1])
+                else:
+                    X_test.append(prev)
+                    Y_test.append(flights[flNum][index][1])
+
+
+        mse1 /= count
+        mse2 /= count
         print ("Count", count)
         print ("Window size:", window)
-        print ("MSE:", mse)
+
+        X_train = np.array(X_train)
+        Y_train = np.array(Y_train)
+        X_test = np.array(X_test)
+        Y_test = np.array(Y_test)
+
+        regr = linear_model.LinearRegression()
+        regr.fit(X_train, Y_train)
+        pred = regr.predict(X_train)
+        r2_train = r2_score(Y_train, pred)
+        mse_train = mean_squared_error(Y_train, pred)
+
+        pred = regr.predict(X_test)
+        r2_test = r2_score(Y_test, pred)
+        mse_test = mean_squared_error(Y_test, pred)
+    
+        print ("MSE train", mse_train)
+        print ("R2 train", r2_train)
+        print ("MSE test", mse_test)
+        print ("R2 test", r2_test)
+
+
         print ()
-        
 
     def trainLinearModel(self, fname, nExamples):
         X = []
@@ -177,8 +220,8 @@ class Model(object):
             print ("X", X)
             print ("Y", Y)
 
-        self.regr = linear_model.LinearRegression()
-        self.regr.fit(X, Y)
+        regr = linear_model.LinearRegression()
+        regr.fit(X, Y)
 
     def predictLinearModel(self, fname, nExamples, retResult=False):
         X = []
