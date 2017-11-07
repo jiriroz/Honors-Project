@@ -83,6 +83,55 @@ Inputted 0 for missing values in all 5 delay types.
 Making time variables categorical vs transforming them into a smooth variable doesn't seem to have an impact on performance.
 
 
+Optimizing preprocessing:
+
+230 def preprocess(row, features, yIndex):
+	# SECTION 1 START
+233     for feat in FLOAT_FEATURES:
+234         row[feat] = float(row[feat])
+235     for feat in INT_FEATURES:
+236         row[feat] = int(float(row[feat]))
+237     row[CRS_DEP_TIME] = int(int(row[CRS_DEP_TIME]) / 100) #extract hours
+238     row[CRS_ARR_TIME] = int(int(row[CRS_ARR_TIME]) / 100)
+239     for feat in CATEG_VARS:
+240         #map categorical features so that they are in [0, number of values)
+241         row[feat] = CATEG_VARS[feat][row[feat]]
+
+	#SECTION 2 START
+244     featRow = []
+245     nValues = []
+246     for feat in features:
+247         #print ("Processing feature ", feat)
+248         if feat in TIME_VARS:
+249             #print ("Time variable")
+250             a, b = convertTimeVariable(row[feat], TIME_VARS[feat])
+251             featRow.append(a)
+252             featRow.append(b)
+253             nValues.append(0)
+254             nValues.append(0)
+255         elif feat in CATEG_VARS:
+256             nValues.append(len(CATEG_VARS[feat].keys()))
+257             featRow.append(row[feat])
+258             #print ("Categorical variable, n values: ", nValues[-1])
+259         else:
+260             #print ("Numerical variable")
+261             nValues.append(0)
+262             featRow.append(row[feat])
+263 
+	#SECTION 3 START
+266     #print ("Performing one hot encoding")
+267     #print ("Number of features:", len(nValues))
+268     #print ("N values", nValues)
+269     enc = MyOneHotEncoder(nValues=nValues) #make property variable
+270     featRow = enc.transform(featRow)
+271     y = row[yIndex]
+274     return featRow, y, row
+
+CPU time:
+Section 1: 43%
+Section 2: 20%
+Section 3: 37%
+
 
 
 

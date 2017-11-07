@@ -22,15 +22,14 @@ SORTED = "data/2016.csv"
 
 def main():
     t = time.time()
-    ntrain = 500000
+    ntrain = 5000000
     ntest = 100
     feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE, ORIGIN_AIRPORT_ID, DEST_AIRPORT_ID, ORIGIN_CITY_MARKET_ID, DEST_CITY_MARKET_ID]
 
     selected_feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE]
 
     model = Model("TemporalModel", ARR_DELAY, [DISTANCE])
-    for window in [1, 2, 4, 8, 16]:
-        model.temporalModel(SORTED, ntrain, window=window)
+    model.temporalModel(SORTED, ntrain, window=1)
 
 
 class Predictor(object):
@@ -102,15 +101,20 @@ class Model(object):
 
     def temporalModel(self, fname, nExamples, window=1):
 
+        testRatio = 1.0 / (window + 3)
+
         flights = dict()
         index = 0
+
+        nData = int((1 / testRatio) * nExamples)
         for (x, y, row) in iterData(fname, self.features, self.yIndex):
-            if index >= nExamples:
+            if index >= nData:
                 break
             flNum = getFlNum(row)
             if flNum not in flights:
                 flights[flNum] = []
-            flights[flNum].append((x, y, row))
+            
+            flights[flNum].append((x, y))
             index += 1
 
         print ("Number of flights: ", len(list(flights.keys())))
@@ -121,21 +125,23 @@ class Model(object):
             n = len(flights[flNum])
             if n < window + 1:
                 continue
-            count += 1
-            i = random.randint(window, n - 1)
-            prediction = 0.0
-            for j in range(i - 1, i - window - 1, -1):
-                prediction += flights[flNum][j][1]
-            prediction /= window
-            #print ("Predicted:", prediction, "actual:", flights[flNum][i][1])
-            mse += (prediction - flights[flNum][i][1]) ** 2
+            nTest = int(n * testRatio)
+            for i in range(nTest):
+                count += 1
+                index = random.randint(window, n - 1)
+                prediction = 0.0
+                for j in range(index - 1, index - window - 1, -1):
+                    prediction += flights[flNum][j][1]
+                prediction /= window
+                #print ("Predicted:", prediction, "actual:", flights[flNum][index][1])
+                mse += (prediction - flights[flNum][index][1]) ** 2
+
         mse /= count
+        print ("Count", count)
         print ("Window size:", window)
         print ("MSE:", mse)
         print ()
         
-
-
 
     def trainLinearModel(self, fname, nExamples):
         X = []
@@ -226,11 +232,7 @@ def iterData(fname, features, yIndex):
 
 def preprocess(row, features, yIndex):
     for feat in FLOAT_FEATURES:
-        try:
-            row[feat] = float(row[feat])
-        except Exception:
-            print (row[feat])
-            raise ValueError()
+        row[feat] = float(row[feat])
     for feat in INT_FEATURES:
         row[feat] = int(float(row[feat]))
     row[CRS_DEP_TIME] = int(int(row[CRS_DEP_TIME]) / 100) #extract hours

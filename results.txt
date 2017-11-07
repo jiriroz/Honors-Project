@@ -1,0 +1,25 @@
+Linear Regression
+Features: [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_A    RR_TIME, AIRLINE_ID, DISTANCE]
+Predicting: ARR_DELAY
+N train, N test: 5000000, 1000000
+MSE: 1522.00
+
+Linear Regression on each delay type separately, then summing up
+Features: [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_A    RR_TIME, AIRLINE_ID, DISTANCE]
+Predicting: ARR_DELAY
+N train, N test: 5000000, 1000000
+MSE: 2469.35
+
+
+Temporal model using the previous flight:
+Features: ARR_DELAY of the last flight
+Predicting: ARR_DELAY
+N train = N test = 1376000 (2016 data)
+MSE: 2898.83
+
+
+Temporal model averaging last 15 flights:
+Features: ARR_DELAY of the last 15 flights
+Predicting: ARR_DELAY
+N train = N test = 30000 (2016 data)
+MSE: 1788.83
