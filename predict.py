@@ -6,6 +6,7 @@ import pickle
 import random
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.preprocessing import PolynomialFeatures
 import time
 
 from header import *
@@ -19,18 +20,24 @@ VAL_FILE = "data/val.csv"
 SMALL_FILE = "sample.csv"
 ONE_ROW = "onerow.csv"
 SORTED = "data/2016.csv"
+ALL = "data/all.csv"
 
 def main():
     t = time.time()
-    ntrain = 500000
+    ntrain = 100000
     ntest = 100
     feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE, ORIGIN_AIRPORT_ID, DEST_AIRPORT_ID, ORIGIN_CITY_MARKET_ID, DEST_CITY_MARKET_ID]
 
     selected_feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE]
 
-    model = Model("TemporalModel", ARR_DELAY, [DISTANCE])
+    model1 = Model("LinearModel", ARR_DELAY, selected_feats)
+    model2 = Model("PolynomialModel", ARR_DELAY, selected_feats)
 
-    model.temporalModel(SORTED, ntrain, window=12)
+    r2, mse1 = model1.trainLinearModel(TRAIN_FILE, ntrain)
+    r2, mse2 = model1.trainPolynomialModel(TRAIN_FILE, ntrain)
+
+    print ("Mse linear:", mse1)
+    print ("Mse poly degree1 :", mse2)
 
 
 class Predictor(object):
@@ -108,6 +115,8 @@ class Model(object):
         index = 0
 
         nData = int((1 / testRatio) * nExamples)
+        nData = 5000000
+        print ("Retrieving", nData)
         for (x, y, row) in iterData(fname, self.features, self.yIndex):
             if index >= nData:
                 break
@@ -119,8 +128,7 @@ class Model(object):
             index += 1
 
         print ("Number of flights: ", len(list(flights.keys())))
-        mse1 = 0
-        mse2 = 0
+        mse = 0
         count = 0
 
         X_train, Y_train = [], []
@@ -134,21 +142,14 @@ class Model(object):
             for i in range(nTest):
                 count += 1
                 index = random.randint(window, n - 1)
-                prediction1 = 0.0
-                prediction2 = 0.0
+                prediction = 0.0
                 prev = []
                 for j in range(window):
                     prev.append(flights[flNum][index - j - 1][1])
-                    w = 0.8
-                    if j < int(window / 2):
-                        w = 1.2
-                    prediction1 += flights[flNum][index - j - 1][1]
-                    prediction2 += flights[flNum][index - j - 1][1] * w
-                prediction1 /= window
-                prediction2 /= window
+                    prediction += flights[flNum][index - j - 1][1]
+                prediction /= window
                 #print ("Predicted:", prediction, "actual:", flights[flNum][index][1])
-                mse1 += (prediction1 - flights[flNum][index][1]) ** 2
-                mse2 += (prediction2 - flights[flNum][index][1]) ** 2
+                mse += (prediction - flights[flNum][index][1]) ** 2
 
                 if random.random() < 0.8:
                     X_train.append(prev)
@@ -158,9 +159,7 @@ class Model(object):
                     Y_test.append(flights[flNum][index][1])
 
 
-        mse1 /= count
-        mse2 /= count
-        print ("Count", count)
+        mse /= count
         print ("Window size:", window)
 
         X_train = np.array(X_train)
@@ -183,7 +182,6 @@ class Model(object):
         print ("MSE test", mse_test)
         print ("R2 test", r2_test)
 
-
         print ()
 
     def trainLinearModel(self, fname, nExamples):
@@ -199,29 +197,13 @@ class Model(object):
         X = np.array(X)
         Y = np.array(Y)
 
-        self.categ = dict()
-        for i in range(len(X)):
-            row = X[i]
-            y = Y[i]
-            j = 0
-            for j in range(len(row)):
-                if row[j] == 1:
-                    break
-            if j not in self.categ:
-                self.categ[j] = [0, 0.0]
-            self.categ[j][0] += 1
-            if y > 15:
-                self.categ[j][1] += 1
-        #for key in self.categ:
-        #    self.categ[key][1] /= self.categ[key][0]
-        #    print (key, "Probability of delay", self.categ[key][1])
+        self.regr = linear_model.LinearRegression()
+        self.regr.fit(X, Y)
 
-        if LOGGING:
-            print ("X", X)
-            print ("Y", Y)
-
-        regr = linear_model.LinearRegression()
-        regr.fit(X, Y)
+        pred = self.regr.predict(X)
+        r2 = r2_score(Y, pred)
+        mse = mean_squared_error(Y, pred)
+        return r2, mse
 
     def predictLinearModel(self, fname, nExamples, retResult=False):
         X = []
@@ -236,23 +218,6 @@ class Model(object):
         X = np.array(X)
         Y = np.array(Y)
 
-        categ = dict()
-        for i in range(len(X)):
-            row = X[i]
-            y = Y[i]
-            j = 0
-            for j in range(len(row)):
-                if row[j] == 1:
-                    break
-            if j not in categ:
-                categ[j] = [0, 0]
-            categ[j][0] += 1
-            if y > 15:
-                categ[j][1] += 1
-        #for key in categ:
-        #    categ[key][1] /= categ[key][0]
-        #    print (key, "Probability of delay", categ[key][1])
-
         pred = self.regr.predict(X)
         r2 = r2_score(Y, pred)
         mse = mean_squared_error(Y, pred)
@@ -260,6 +225,44 @@ class Model(object):
             return r2, mse, pred
         else:
             return r2, mse
+
+    def trainPolynomialModel(self, fname, nExamples, degree=1):
+        X = []
+        Y = []
+        index = 0
+        for (x, y, row) in iterData(fname, self.features, self.yIndex):
+            if index >= nExamples:
+                break
+            X.append(x)
+            Y.append(y)
+            index += 1
+        X = np.array(X)
+        Y = np.array(Y)
+
+        poly = PolynomialFeatures(degree=degree)
+        X = poly.fit_transform(X)
+        Y = poly.fit_transform(Y)
+
+        self.regr = linear_model.LinearRegression()
+        self.regr.fit(X, Y)
+
+        pred = self.regr.predict(X)
+        r2 = r2_score(Y, pred)
+        mse = mean_squared_error(Y, pred)
+
+        return r2, mse
+
+    def dummyModel(self, fname, nExamples):
+        index = 0
+        mse = 0.0
+        for (x, y, row) in iterData(fname, [], self.yIndex):
+            if index >= nExamples:
+                break
+            mse += y ** 2
+            index += 1
+        mse /= nExamples
+        return mse
+    
 
 def iterData(fname, features, yIndex):
     #Helper generator to read from csv files
