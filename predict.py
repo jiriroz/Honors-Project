@@ -24,20 +24,24 @@ ALL = "data/all.csv"
 
 def main():
     t = time.time()
-    ntrain = 100000
-    ntest = 100
+    ntrain = 200000
+    ntest = 200000
     feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE, ORIGIN_AIRPORT_ID, DEST_AIRPORT_ID, ORIGIN_CITY_MARKET_ID, DEST_CITY_MARKET_ID]
 
     selected_feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE]
 
-    model1 = Model("LinearModel", ARR_DELAY, selected_feats)
-    model2 = Model("PolynomialModel", ARR_DELAY, selected_feats)
+    linear = Model("LinearModel", ARR_DELAY, selected_feats)
+    poly = Model("PolynomialModel", ARR_DELAY, selected_feats)
 
-    r2, mse1 = model1.trainLinearModel(TRAIN_FILE, ntrain)
-    r2, mse2 = model1.trainPolynomialModel(TRAIN_FILE, ntrain)
+    r2, mse1 = linear.linearModel(TRAIN_FILE, ntrain, train=True, fit=True)
+    r2, mse2 = poly.polynomialModel(TRAIN_FILE, ntrain, degree=2, train=True, fit=True)
+    r2, mse3 = linear.linearModel(VAL_FILE, ntrain, train=False, fit=True)
+    r2, mse4 = poly.polynomialModel(VAL_FILE, ntrain, degree=2, train=False, fit=True)
 
-    print ("Mse linear:", mse1)
-    print ("Mse poly degree1 :", mse2)
+    print ("Mse linear train:", mse1)
+    print ("Mse linear test:", mse3)
+    print ("Mse poly train:", mse2)
+    print ("Mse poly test:", mse4)
 
 
 class Predictor(object):
@@ -115,7 +119,6 @@ class Model(object):
         index = 0
 
         nData = int((1 / testRatio) * nExamples)
-        nData = 5000000
         print ("Retrieving", nData)
         for (x, y, row) in iterData(fname, self.features, self.yIndex):
             if index >= nData:
@@ -162,29 +165,34 @@ class Model(object):
         mse /= count
         print ("Window size:", window)
 
+        degree = 2
+        poly = PolynomialFeatures(degree=degree)
+
         X_train = np.array(X_train)
+        X_train_poly = poly.fit_transform(X_train)
         Y_train = np.array(Y_train)
+
         X_test = np.array(X_test)
+        X_test_poly = np.array(X_test_poly)
         Y_test = np.array(Y_test)
 
-        regr = linear_model.LinearRegression()
-        regr.fit(X_train, Y_train)
-        pred = regr.predict(X_train)
+        linear = linear_model.LinearRegression()
+        linear.fit(X_train, Y_train)
+        pred = linear.predict(X_test)
         r2_train = r2_score(Y_train, pred)
-        mse_train = mean_squared_error(Y_train, pred)
+        mse_linear = mean_squared_error(Y_train, pred)
 
-        pred = regr.predict(X_test)
+        poly = linear_model.LinearRegression()
+        poly.fit(X_train_poly, Y_train)
+        pred = poly.predict(X_test_poly)
         r2_test = r2_score(Y_test, pred)
-        mse_test = mean_squared_error(Y_test, pred)
+        mse_poly = mean_squared_error(Y_test, pred)
     
-        print ("MSE train", mse_train)
-        print ("R2 train", r2_train)
-        print ("MSE test", mse_test)
-        print ("R2 test", r2_test)
-
+        print ("MSE linear", mse_linear)
+        print ("MSE poly", mse_poly)
         print ()
 
-    def trainLinearModel(self, fname, nExamples):
+    def linearModel(self, fname, nExamples, train=False, fit=True):
         X = []
         Y = []
         index = 0
@@ -197,36 +205,17 @@ class Model(object):
         X = np.array(X)
         Y = np.array(Y)
 
-        self.regr = linear_model.LinearRegression()
-        self.regr.fit(X, Y)
+        if train:
+            self.regr = linear_model.LinearRegression()
+            self.regr.fit(X, Y)
 
-        pred = self.regr.predict(X)
-        r2 = r2_score(Y, pred)
-        mse = mean_squared_error(Y, pred)
-        return r2, mse
-
-    def predictLinearModel(self, fname, nExamples, retResult=False):
-        X = []
-        Y = []
-        index = 0
-        for (x, y, row) in iterData(fname, self.features, self.yIndex):
-            if index >= nExamples:
-                break
-            X.append(x)
-            Y.append(y)
-            index += 1
-        X = np.array(X)
-        Y = np.array(Y)
-
-        pred = self.regr.predict(X)
-        r2 = r2_score(Y, pred)
-        mse = mean_squared_error(Y, pred)
-        if retResult:
-            return r2, mse, pred
-        else:
+        if fit:
+            pred = self.regr.predict(X)
+            r2 = r2_score(Y, pred)
+            mse = mean_squared_error(Y, pred)
             return r2, mse
 
-    def trainPolynomialModel(self, fname, nExamples, degree=1):
+    def polynomialModel(self, fname, nExamples, degree=1, train=False, fit=True):
         X = []
         Y = []
         index = 0
@@ -241,16 +230,16 @@ class Model(object):
 
         poly = PolynomialFeatures(degree=degree)
         X = poly.fit_transform(X)
-        Y = poly.fit_transform(Y)
 
-        self.regr = linear_model.LinearRegression()
-        self.regr.fit(X, Y)
+        if train:
+            self.regr = linear_model.LinearRegression()
+            self.regr.fit(X, Y)
 
-        pred = self.regr.predict(X)
-        r2 = r2_score(Y, pred)
-        mse = mean_squared_error(Y, pred)
-
-        return r2, mse
+        if fit:
+            pred = self.regr.predict(X)
+            r2 = r2_score(Y, pred)
+            mse = mean_squared_error(Y, pred)
+            return r2, mse
 
     def dummyModel(self, fname, nExamples):
         index = 0
