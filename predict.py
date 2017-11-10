@@ -24,12 +24,12 @@ ALL = "data/all.csv"
 
 def main():
     t = time.time()
-    ntrain = 200000
-    ntest = 200000
+    ntrain = 100000
     feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE, ORIGIN_AIRPORT_ID, DEST_AIRPORT_ID, ORIGIN_CITY_MARKET_ID, DEST_CITY_MARKET_ID]
 
     selected_feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE]
 
+    """
     linear = Model("LinearModel", ARR_DELAY, selected_feats)
     poly = Model("PolynomialModel", ARR_DELAY, selected_feats)
 
@@ -42,6 +42,16 @@ def main():
     print ("Mse linear test:", mse3)
     print ("Mse poly train:", mse2)
     print ("Mse poly test:", mse4)
+    """
+
+    #for win in [10, 12, 14, 16, 18]:
+    #    temporal = Model("TemporalModel", ARR_DELAY, [])
+    #    temporal.temporalModel(ALL, ntrain, window=win)
+
+    ntrain = 1000000
+    temporal = Model("TemporalModel", ARR_DELAY, [])
+    temporal.temporalModel(ALL, ntrain, window=15)
+    
 
 
 class Predictor(object):
@@ -113,12 +123,12 @@ class Model(object):
 
     def temporalModel(self, fname, nExamples, window=1):
 
-        testRatio = 1.0 / (window + 3)
+        testRatio = 1.0 / (window)
 
         flights = dict()
         index = 0
 
-        nData = int((1 / testRatio) * nExamples)
+        nData = nExamples * window
         print ("Retrieving", nData)
         for (x, y, row) in iterData(fname, self.features, self.yIndex):
             if index >= nData:
@@ -132,37 +142,88 @@ class Model(object):
 
         print ("Number of flights: ", len(list(flights.keys())))
         mse = 0
-        count = 0
 
         X_train, Y_train = [], []
         X_test, Y_test = [], []
-        
-        for flNum in flights:
+        X_train_norm, Y_train_norm = [], []
+        X_test_norm, Y_test_norm = [], []
+
+        nTest = int(nData/window)
+        count = 0
+
+        flNums = list(flights.keys())
+        for flNum in flNums:
+            if len(flights[flNum]) < window + 1:
+                del flights[flNum]
+
+        flNums = list(flights.keys())
+        while count < nExamples:
+            flNum = random.choice(flNums)
             n = len(flights[flNum])
-            if n < window + 1:
+            index = random.randint(window, n - 1)
+            prediction = 0.0
+            prev = []
+            for j in range(window):
+                prev.append(flights[flNum][index - j - 1][1])
+                prediction += flights[flNum][index - j - 1][1]
+            y = flights[flNum][index][1]
+
+            std = np.std(prev[1:])
+            mean = np.mean(prev[1:])
+            prevNorm = np.array(prev[:])
+            prevNorm -= mean
+            yNorm = y - mean
+            if std > 0:
+                prevNorm /= std
+                yNorm /= std
+            else:
                 continue
-            nTest = int(n * testRatio)
-            for i in range(nTest):
-                count += 1
-                index = random.randint(window, n - 1)
-                prediction = 0.0
-                prev = []
-                for j in range(window):
-                    prev.append(flights[flNum][index - j - 1][1])
-                    prediction += flights[flNum][index - j - 1][1]
-                prediction /= window
-                #print ("Predicted:", prediction, "actual:", flights[flNum][index][1])
-                mse += (prediction - flights[flNum][index][1]) ** 2
 
-                if random.random() < 0.8:
-                    X_train.append(prev)
-                    Y_train.append(flights[flNum][index][1])
-                else:
-                    X_test.append(prev)
-                    Y_test.append(flights[flNum][index][1])
+            prediction /= window
+            #print ("Predicted:", prediction, "actual:", flights[flNum][index][1])
+            mse += (prediction - y) ** 2
+
+            if random.random() < 0.8:
+                X_train.append(prev)
+                Y_train.append(y)
+                X_train_norm.append(prevNorm)
+                Y_train_norm.append(yNorm)
+            else:
+                X_test.append(prev)
+                Y_test.append(y)
+                X_test_norm.append(prevNorm)
+                Y_test_norm.append(yNorm)
+            count += 1
 
 
-        mse /= count
+        """
+        mean = 0.0
+        std = 0.0
+        for prev in X_train:
+            mean += np.mean(prev)
+            std += np.std(prev)
+        mean /= len(X_train)
+        std /= len(X_train)
+        print ("Mean delay is", mean)
+        print ("Mean standard deviation is", std)
+
+        for i in range(10):
+            j = random.randint(0, len(X_train) - 1)
+            print (Y_train[j], X_train[j])
+
+        means = []
+        stds = []
+        for prev in X_test:
+            means.append(np.mean(prev))
+            stds.append(np.std(prev))
+
+        plt.figure("Means")
+        plt.hist(means, 50, normed=1)
+
+        plt.figure("Standard deviations")
+        plt.hist(stds, 50, normed=1)
+        plt.show()
+        """
         print ("Window size:", window)
 
         degree = 2
@@ -173,24 +234,40 @@ class Model(object):
         Y_train = np.array(Y_train)
 
         X_test = np.array(X_test)
-        X_test_poly = np.array(X_test_poly)
+        X_test_poly = poly.fit_transform(X_test)
         Y_test = np.array(Y_test)
+
+        X_train_norm = np.array(X_train_norm)
+        Y_train_norm = np.array(Y_train_norm)
+        X_test_norm = np.array(X_test_norm)
+        Y_test_norm = np.array(Y_test_norm)
 
         linear = linear_model.LinearRegression()
         linear.fit(X_train, Y_train)
         pred = linear.predict(X_test)
-        r2_train = r2_score(Y_train, pred)
-        mse_linear = mean_squared_error(Y_train, pred)
+        mse_linear = 0
+        for i in range(len(X_test)):
+            mean = np.mean(X_test[i])
+            std = np.std(X_test[i])
+            Y_test[i] = (Y_test[i] - mean) / std
+            pred[i] = (pred[i] - mean) / std
+        mse_linear = mean_squared_error(Y_test, pred)
 
-        poly = linear_model.LinearRegression()
-        poly.fit(X_train_poly, Y_train)
-        pred = poly.predict(X_test_poly)
-        r2_test = r2_score(Y_test, pred)
-        mse_poly = mean_squared_error(Y_test, pred)
+        linear = linear_model.LinearRegression()
+        linear.fit(X_train_norm, Y_train_norm)
+        pred = linear.predict(X_test_norm)
+        mse_linear_norm = mean_squared_error(Y_test_norm, pred)
+
+        #poly = linear_model.LinearRegression()
+        #poly.fit(X_train_poly, Y_train)
+        #pred = poly.predict(X_test_poly)
+        #mse_poly = mean_squared_error(Y_test, pred)
     
         print ("MSE linear", mse_linear)
-        print ("MSE poly", mse_poly)
+        print ("MSE linear norm", mse_linear_norm)
+        #print ("MSE poly", mse_poly)
         print ()
+
 
     def linearModel(self, fname, nExamples, train=False, fit=True):
         X = []

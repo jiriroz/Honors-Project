@@ -1,3 +1,9 @@
+Dummy model predicting 0 delay on every flight
+Features: []
+Predicting: ARR_DELAY
+N train: 5000000
+MSE: 1574.55
+
 Linear Regression
 Features: [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_A    RR_TIME, AIRLINE_ID, DISTANCE]
 Predicting: ARR_DELAY
@@ -10,6 +16,11 @@ Predicting: ARR_DELAY
 N train, N test: 5000000, 1000000
 MSE: 2469.35
 
+Polynomial Regression
+Features: [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_A    RR_TIME, AIRLINE_ID, DISTANCE]
+Predicting: ARR_DELAY
+N train, N test: 200000, 200000
+MSE: 1557.80
 
 Temporal model using the previous flight:
 Features: ARR_DELAY of the last flight
@@ -23,3 +34,16 @@ Features: ARR_DELAY of the last 15 flights
 Predicting: ARR_DELAY
 N train = N test = 30000 (2016 data)
 MSE: 1788.83
+
+Temporal linear model with last 15 flights as features
+Features: ARR_DELAY of the last 15 flights
+Predicting: ARR_DELAY
+N train = N test = 300000 (2016 data)
+MSE: 1753.61
+
+
+Optimal window size seems to be around 25 (to confirm)
+
+Polynomial seems to be slightly better than linear for temporal model.
+
+Normalization of data doesn't improve the results.

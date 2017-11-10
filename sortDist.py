@@ -13,11 +13,12 @@ def appendToCsv(fname, rows):
 def getFlNum(row):
     return row[4].strip() + row[7].strip()
 
-def getAirline(row):
-    return row[4].strip()
+def getAirlineKey(row):
+    return "{}-{}".format(row[4].strip(), row[0].strip())
 
+fname = "data/all.csv"
 
-with open("data/2016.csv", "r") as fr:
+with open(fname, "r") as fr:
     reader = csv.reader(fr)
     i = -1
     data = dict()
@@ -30,7 +31,7 @@ with open("data/2016.csv", "r") as fr:
         i += 1
         if i % 100000 == 0:
             print ( i / 63490.0, "%")
-        airline = getAirline(row)
+        airline = getAirlineKey(row)
         if airline not in data:
             data[airline] = []
         data[airline].append(row)
@@ -43,7 +44,7 @@ with open("data/2016.csv", "r") as fr:
         appendToCsv("temp/{}.csv".format(airline), data[airline])
         data[airline] = []
 
-    with open("data/2016-sorted.csv", "w") as fw:
+    with open(fname + ".sorted", "w") as fw:
         writer = csv.writer(fw)
         writer.writerow(header)
         for airline in sorted(list(data.keys())):
@@ -56,17 +57,6 @@ with open("data/2016.csv", "r") as fr:
                 rows.sort(key = lambda x: (getFlNum(x), x[1], x[2]))
             for row in rows:
                 writer.writerow(row)
+    print ("Done")
             
         
-
-
-    #print ("Sorting")
-    #for flNum in data:
-    #    rows = data[flNum]
-    #    rows.sort(key = lambda x: (x[1], x[2]))
-    #print ("Sorted")
-    #print ("Sample: ")
-    #for flNum in list(data.keys())[:10]:
-    #    for x in data[flNum][:7]:
-    #        print (x[1], x[2], x[4], x[7])
-    #    print ()
