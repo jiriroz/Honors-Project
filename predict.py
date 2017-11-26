@@ -24,7 +24,8 @@ ALL = "data/all.csv"
 
 def main():
     t = time.time()
-    ntrain = 100000
+    #ntrain = 1000000
+    ntrain = 1000000
     feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE, ORIGIN_AIRPORT_ID, DEST_AIRPORT_ID, ORIGIN_CITY_MARKET_ID, DEST_CITY_MARKET_ID]
 
     selected_feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE]
@@ -44,14 +45,9 @@ def main():
     print ("Mse poly test:", mse4)
     """
 
-    #for win in [10, 12, 14, 16, 18]:
-    #    temporal = Model("TemporalModel", ARR_DELAY, [])
-    #    temporal.temporalModel(ALL, ntrain, window=win)
-
-    ntrain = 1000000
-    temporal = Model("TemporalModel", ARR_DELAY, [])
+    temporal = Model("temporal", ARR_DELAY, [])
     temporal.temporalModel(ALL, ntrain, window=15)
-    
+
 
 
 class Predictor(object):
@@ -123,31 +119,27 @@ class Model(object):
 
     def temporalModel(self, fname, nExamples, window=1):
 
-        testRatio = 1.0 / (window)
-
         flights = dict()
         index = 0
 
-        nData = nExamples * window
+        nData = int(nExamples * (0.667 * window))
         print ("Retrieving", nData)
+        # 10000000 good
+        # 15000000 too much
+        # 11250000 (0.75 * win size), win=15 perfect
         for (x, y, row) in iterData(fname, self.features, self.yIndex):
             if index >= nData:
                 break
             flNum = getFlNum(row)
             if flNum not in flights:
                 flights[flNum] = []
-            
-            flights[flNum].append((x, y))
+            airline = row[AIRLINE_ID]
+            airport = row[ORIGIN_AIRPORT_ID]
+            flights[flNum].append(((airline, airport), y))
             index += 1
-
-        print ("Number of flights: ", len(list(flights.keys())))
-        mse = 0
 
         X_train, Y_train = [], []
         X_test, Y_test = [], []
-        X_train_norm, Y_train_norm = [], []
-        X_test_norm, Y_test_norm = [], []
-
         nTest = int(nData/window)
         count = 0
 
@@ -156,79 +148,99 @@ class Model(object):
             if len(flights[flNum]) < window + 1:
                 del flights[flNum]
 
+        airlines = dict()
+        airports = dict()
+
         flNums = list(flights.keys())
         while count < nExamples:
             flNum = random.choice(flNums)
             n = len(flights[flNum])
             index = random.randint(window, n - 1)
-            prediction = 0.0
             prev = []
             for j in range(window):
                 prev.append(flights[flNum][index - j - 1][1])
-                prediction += flights[flNum][index - j - 1][1]
             y = flights[flNum][index][1]
 
-            std = np.std(prev[1:])
-            mean = np.mean(prev[1:])
-            prevNorm = np.array(prev[:])
-            prevNorm -= mean
-            yNorm = y - mean
-            if std > 0:
-                prevNorm /= std
-                yNorm /= std
-            else:
-                continue
+            aline = flights[flNum][index][0][0]
+            aport = flights[flNum][index][0][1]
 
-            prediction /= window
-            #print ("Predicted:", prediction, "actual:", flights[flNum][index][1])
-            mse += (prediction - y) ** 2
+            if aline not in airlines:
+                airlines[aline] = {"train":[[], []], "test":[[], []]}
+            if aport not in airports:
+                airports[aport] = {"train":[[], []], "test":[[], []]}
 
             if random.random() < 0.8:
                 X_train.append(prev)
                 Y_train.append(y)
-                X_train_norm.append(prevNorm)
-                Y_train_norm.append(yNorm)
+                airlines[aline]["train"][0].append(prev)
+                airlines[aline]["train"][1].append(y)
+                airports[aport]["train"][0].append(prev)
+                airports[aport]["train"][1].append(y)
             else:
                 X_test.append(prev)
                 Y_test.append(y)
-                X_test_norm.append(prevNorm)
-                Y_test_norm.append(yNorm)
+                airlines[aline]["test"][0].append(prev)
+                airlines[aline]["test"][1].append(y)
+                airports[aport]["test"][0].append(prev)
+                airports[aport]["test"][1].append(y)
             count += 1
 
-
-        """
-        mean = 0.0
-        std = 0.0
-        for prev in X_train:
-            mean += np.mean(prev)
-            std += np.std(prev)
-        mean /= len(X_train)
-        std /= len(X_train)
-        print ("Mean delay is", mean)
-        print ("Mean standard deviation is", std)
-
-        for i in range(10):
-            j = random.randint(0, len(X_train) - 1)
-            print (Y_train[j], X_train[j])
-
-        means = []
-        stds = []
-        for prev in X_test:
-            means.append(np.mean(prev))
-            stds.append(np.std(prev))
-
-        plt.figure("Means")
-        plt.hist(means, 50, normed=1)
-
-        plt.figure("Standard deviations")
-        plt.hist(stds, 50, normed=1)
-        plt.show()
-        """
         print ("Window size:", window)
 
         degree = 2
         poly = PolynomialFeatures(degree=degree)
 
+        print ("Computing airline models")
+        alineMse = []
+        for aline in airlines:
+            l1 = len(airlines[aline]["train"][0])
+            l2 = len(airlines[aline]["test"][0])
+            if l1 == 0 or l2 == 0:
+                continue            
+            print ("Airline", aline)
+            print ("Len train", l1)
+            print ("Len test", l2)
+            print ()
+            Xtrain = np.array(airlines[aline]["train"][0])
+            Xtrain_poly = poly.fit_transform(Xtrain)
+            Ytrain = np.array(airlines[aline]["train"][1])
+
+            Xtest = np.array(airlines[aline]["test"][0])
+            Xtest_poly = poly.fit_transform(Xtest)
+            Ytest = np.array(airlines[aline]["test"][1])
+
+            regr = linear_model.LinearRegression()
+            regr.fit(Xtrain_poly, Ytrain)
+            pred = regr.predict(Xtest_poly)
+            mse = mean_squared_error(Ytest, pred)
+            alineMse.append(mse)
+            
+        print ("Computing airport models")
+        aportMse = []
+        for aport in airports:
+            l1 = len(airports[aport]["train"][0])
+            l2 = len(airports[aport]["test"][0])
+            if l1 < 1000 or l2 < 1000:
+                continue            
+            #print ("Airport", aport)
+            #print ("Len train", l1)
+            #print ("Len test", l2)
+            #print ()
+            Xtrain = np.array(airports[aport]["train"][0])
+            Xtrain_poly = poly.fit_transform(Xtrain)
+            Ytrain = np.array(airports[aport]["train"][1])
+
+            Xtest = np.array(airports[aport]["test"][0])
+            Xtest_poly = poly.fit_transform(Xtest)
+            Ytest = np.array(airports[aport]["test"][1])
+
+            regr = linear_model.LinearRegression()
+            regr.fit(Xtrain_poly, Ytrain)
+            pred = regr.predict(Xtest_poly)
+            mse = mean_squared_error(Ytest, pred)
+            aportMse.append(mse)
+
+        print ("Computing regular model")
         X_train = np.array(X_train)
         X_train_poly = poly.fit_transform(X_train)
         Y_train = np.array(Y_train)
@@ -237,36 +249,17 @@ class Model(object):
         X_test_poly = poly.fit_transform(X_test)
         Y_test = np.array(Y_test)
 
-        X_train_norm = np.array(X_train_norm)
-        Y_train_norm = np.array(Y_train_norm)
-        X_test_norm = np.array(X_test_norm)
-        Y_test_norm = np.array(Y_test_norm)
-
-        linear = linear_model.LinearRegression()
-        linear.fit(X_train, Y_train)
-        pred = linear.predict(X_test)
-        mse_linear = 0
-        for i in range(len(X_test)):
-            mean = np.mean(X_test[i])
-            std = np.std(X_test[i])
-            Y_test[i] = (Y_test[i] - mean) / std
-            pred[i] = (pred[i] - mean) / std
-        mse_linear = mean_squared_error(Y_test, pred)
-
-        linear = linear_model.LinearRegression()
-        linear.fit(X_train_norm, Y_train_norm)
-        pred = linear.predict(X_test_norm)
-        mse_linear_norm = mean_squared_error(Y_test_norm, pred)
-
-        #poly = linear_model.LinearRegression()
-        #poly.fit(X_train_poly, Y_train)
-        #pred = poly.predict(X_test_poly)
-        #mse_poly = mean_squared_error(Y_test, pred)
+        regr = linear_model.LinearRegression()
+        regr.fit(X_train_poly, Y_train)
+        pred = regr.predict(X_test_poly)
+        mse = mean_squared_error(Y_test, pred)
     
-        print ("MSE linear", mse_linear)
-        print ("MSE linear norm", mse_linear_norm)
-        #print ("MSE poly", mse_poly)
+        print ("Airline mses", alineMse)
+        print ("Sample airport mses", random.sample(aportMse, 5))
         print ()
+        print ("Regular mse", mse)
+        print ("Average airline mse", sum(alineMse) / len(alineMse))
+        print ("Average airport mse", sum(aportMse) / len(aportMse))
 
 
     def linearModel(self, fname, nExamples, train=False, fit=True):

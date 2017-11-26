@@ -38,12 +38,29 @@ MSE: 1788.83
 Temporal linear model with last 15 flights as features
 Features: ARR_DELAY of the last 15 flights
 Predicting: ARR_DELAY
-N train = N test = 300000 (2016 data)
-MSE: 1753.61
+N train = N test = 1000000 (2016 data)
+MSE: 1509.10
+
+Temporal polynomial model with last 15 flights as features
+Features: ARR_DELAY of the last 15 flights
+Predicting: ARR_DELAY
+N train = N test = 1000000 (2016 data)
+MSE: 1500.02
+
+Temporal polynomial model per-airline
+Features: ARR_DELAY of the last 15 flights
+Predicting: ARR_DELAY
+N train = N test = 1000000 (2016 data)
+MSE: 1589.22 avg over all airlines (comp. with 1579.15 poly model with the same data)
+
+Temporal polynomial model per-airport
+Features: ARR_DELAY of the last 15 flights
+Predicting: ARR_DELAY
+N train = N test = 1000000 (2016 data)
+MSE: 1511.36 avg over all airports (comp. with 1579.15 poly model with the same data)
 
 
-Optimal window size seems to be around 25 (to confirm)
 
-Polynomial seems to be slightly better than linear for temporal model.
 
-Normalization of data doesn't improve the results.
+
+
