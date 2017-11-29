@@ -7,6 +7,7 @@ import random
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.preprocessing import PolynomialFeatures
+import sqlite3
 import time
 
 from header import *
@@ -23,8 +24,21 @@ SORTED_2016 = "data/2016.csv"
 ALL = "data/all.csv"
 ALL_SORTED = "data/all.csv.sorted"
 
+fileAirports = open("data/airports.p", "rb")
+TABLES = pickle.load(fileAirports)
+fileAirports.close()
+TOTAL_DATA = sum([TABLES[x] for x in TABLES])
+
 def main():
-    t = time.time()
+
+    conn = sqlite3.connect("delays.db")
+    dataIter = dataIterator(11057, 10, "train", ["ID", "FL_NUM", "YEAR", "MONTH"], conn)
+    for row in dataIter:
+        print (row)
+    conn.close()
+    return
+
+
     #ntrain = 1000000
     ntrain = 1000000
     feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE, ORIGIN_AIRPORT_ID, DEST_AIRPORT_ID, ORIGIN_CITY_MARKET_ID, DEST_CITY_MARKET_ID]
@@ -46,8 +60,8 @@ def main():
     print ("Mse poly test:", mse4)
     """
 
-    temporal = Model("temporal", ARR_DELAY, [])
-    temporal.temporalModel(SORTED_2016, ntrain, window=10)
+    #temporal = Model("temporal", ARR_DELAY, [])
+    #temporal.temporalModel(SORTED_2016, ntrain, window=10)
 
 
 class Predictor(object):
@@ -333,7 +347,7 @@ class Model(object):
         return mse
     
 
-def iterData(fname, features, yIndex):
+def iterDataCsv(fname, features, yIndex):
     #Helper generator to read from csv files
     #Return preprocessed row as well as the original row
     with open(fname, "r") as csvfile:
@@ -344,6 +358,52 @@ def iterData(fname, features, yIndex):
                 first = False
                 continue
             yield preprocess(row, features, yIndex)
+
+def dataIterator(airportId, n, setType, features, conn): 
+    featNames = ", ".join(features)
+    criteria = getCriteria(setType)
+    query = "SELECT {} FROM {} WHERE ID={} AND {}"
+    result = []
+
+    #Get data iterator from the database
+    if airportId == None:
+        #For now store in array.
+        nTable = {tbl:0 for tbl in TABLES}
+        tables = list(nTable.keys())
+        probs = [TABLES[x]/TOTAL_DATA for x in tables]
+        choice = np.random.choice(len(tables), n, p=probs)
+        for index in choice:
+            nTable[tables[index]] += 1
+        for table in TABLES:
+            if nTable[table] == 0:
+                continue
+            cursor = conn.execute(query.format(featNames, table, criteria, nTable[table]))
+            for row in cursor:
+                result.append((table, row))
+        return result
+            
+    else:
+        tableName = "airport{}".format(airportId)
+        #Need to use while since some rows may not belong to the set
+        #ids = np.random.choice(TABLES[tableName], n, replace=False)
+        while len(result) < n:
+            rowId = random.randint(0, TABLES[tableName])
+            cursor = conn.execute(query.format(featNames, tableName, rowId, criteria))
+            row = cursor.fetchone()
+            if row != None:
+                result.append(row)
+        return result
+        
+def getCriteria(setType):
+    if setType == "train":
+        return "YEAR < 2016"
+    elif setType == "val":
+        return "YEAR = 2016"
+    elif setType == "test":
+        return "YEAR = 2017"
+    else:
+        raise ValueError("Set has to be train/val/test")
+
 
 def preprocess(row, features, yIndex):
     for feat in FLOAT_FEATURES:
