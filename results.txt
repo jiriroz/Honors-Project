@@ -2,22 +2,28 @@ Dummy model predicting 0 delay on every flight
 Features: []
 Predicting: ARR_DELAY
 N train: 5000000
-MSE: 1574.55
+MSE: 1574.55lay 
+
+Generating random exp with mean = average deof last 15 flights
+Features: ARR_DELAY of the last 15 flights
+Predicting: ARR_DELAY
+N train = N test = 1000000 (2016 data)
+MSE: 1657.35
 
 Linear Regression
-Features: [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_A    RR_TIME, AIRLINE_ID, DISTANCE]
+Features: [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE]
 Predicting: ARR_DELAY
 N train, N test: 5000000, 1000000
 MSE: 1522.00
 
 Linear Regression on each delay type separately, then summing up
-Features: [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_A    RR_TIME, AIRLINE_ID, DISTANCE]
+Features: [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE]
 Predicting: ARR_DELAY
 N train, N test: 5000000, 1000000
 MSE: 2469.35
 
 Polynomial Regression
-Features: [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_A    RR_TIME, AIRLINE_ID, DISTANCE]
+Features: [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE]
 Predicting: ARR_DELAY
 N train, N test: 200000, 200000
 MSE: 1557.80

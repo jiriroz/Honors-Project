@@ -19,8 +19,9 @@ VAL_FILE = "data/val.csv"
 #TEST_FILE = "data/test.csv" #off limits
 SMALL_FILE = "sample.csv"
 ONE_ROW = "onerow.csv"
-SORTED = "data/2016.csv"
+SORTED_2016 = "data/2016.csv"
 ALL = "data/all.csv"
+ALL_SORTED = "data/all.csv.sorted"
 
 def main():
     t = time.time()
@@ -46,8 +47,7 @@ def main():
     """
 
     temporal = Model("temporal", ARR_DELAY, [])
-    temporal.temporalModel(ALL, ntrain, window=15)
-
+    temporal.temporalModel(SORTED_2016, ntrain, window=10)
 
 
 class Predictor(object):
@@ -152,6 +152,7 @@ class Model(object):
         airports = dict()
 
         flNums = list(flights.keys())
+        mse = 0.0
         while count < nExamples:
             flNum = random.choice(flNums)
             n = len(flights[flNum])
@@ -160,6 +161,7 @@ class Model(object):
             for j in range(window):
                 prev.append(flights[flNum][index - j - 1][1])
             y = flights[flNum][index][1]
+            mse += y**2
 
             aline = flights[flNum][index][0][0]
             aport = flights[flNum][index][0][1]
@@ -186,6 +188,7 @@ class Model(object):
             count += 1
 
         print ("Window size:", window)
+        print ("0 predict mse", mse / count)
 
         degree = 2
         poly = PolynomialFeatures(degree=degree)
@@ -195,12 +198,12 @@ class Model(object):
         for aline in airlines:
             l1 = len(airlines[aline]["train"][0])
             l2 = len(airlines[aline]["test"][0])
-            if l1 == 0 or l2 == 0:
+            if l2 < 1000:
                 continue            
-            print ("Airline", aline)
-            print ("Len train", l1)
-            print ("Len test", l2)
-            print ()
+            #print ("Airline", aline)
+            #print ("Len train", l1)
+            #print ("Len test", l2)
+            #print ()
             Xtrain = np.array(airlines[aline]["train"][0])
             Xtrain_poly = poly.fit_transform(Xtrain)
             Ytrain = np.array(airlines[aline]["train"][1])
@@ -220,7 +223,7 @@ class Model(object):
         for aport in airports:
             l1 = len(airports[aport]["train"][0])
             l2 = len(airports[aport]["test"][0])
-            if l1 < 1000 or l2 < 1000:
+            if l2 < 1000:
                 continue            
             #print ("Airport", aport)
             #print ("Len train", l1)
@@ -240,7 +243,6 @@ class Model(object):
             mse = mean_squared_error(Ytest, pred)
             aportMse.append(mse)
 
-        print ("Computing regular model")
         X_train = np.array(X_train)
         X_train_poly = poly.fit_transform(X_train)
         Y_train = np.array(Y_train)
@@ -249,15 +251,23 @@ class Model(object):
         X_test_poly = poly.fit_transform(X_test)
         Y_test = np.array(Y_test)
 
+        print ("Computing linear model")
         regr = linear_model.LinearRegression()
         regr.fit(X_train_poly, Y_train)
         pred = regr.predict(X_test_poly)
-        mse = mean_squared_error(Y_test, pred)
+        mse_linear = mean_squared_error(Y_test, pred)
+
+        print ("Computing polynomial model")
+        regr = linear_model.LinearRegression()
+        regr.fit(X_train, Y_train)
+        pred = regr.predict(X_test)
+        mse_poly = mean_squared_error(Y_test, pred)
     
-        print ("Airline mses", alineMse)
-        print ("Sample airport mses", random.sample(aportMse, 5))
+        #print ("Airline mses", alineMse)
+        #print ("Sample airport mses", random.sample(aportMse, 5))
         print ()
-        print ("Regular mse", mse)
+        print ("Linear mse", mse_linear)
+        print ("Polynomial mse", mse_poly)
         print ("Average airline mse", sum(alineMse) / len(alineMse))
         print ("Average airport mse", sum(aportMse) / len(aportMse))
 
@@ -377,7 +387,7 @@ def convertTimeVariable(t, period):
     return math.sin(2 * math.pi * t / period), math.cos(2 * math.pi * t / period)
 
 def getFlNum(row):
-    return row[4].strip() + row[7].strip()
+    return row[UNIQUE_CARRIER].strip() + row[FL_NUM].strip()
 
 if __name__ == "__main__":
     main()

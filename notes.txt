@@ -90,9 +90,56 @@ Polynomial seems to be slightly better than linear for temporal model.
 
 Normalization of data doesn't improve the results.
 
-Make a per-airport temporal model? Per airline?
+Per-airport temporal model seems to work better than regular temporal model, per-airline doesn't.
+(however fairly inconclusive - data size seems to have a large effect on these models)
 
-Include other flights in the same airport for prediction? (like average delay yesterday in https://cseweb.ucsd.edu/classes/wi17/cse258-a/reports/a032.pdf).
+Include other flights in the same airport for prediction?
+https://cseweb.ucsd.edu/classes/wi17/cse258-a/reports/a032.pdf
+http://www.mit.edu/~hamsa/pubs/GopalakrishnanBalakrishnanATM2017.pdf
+
+Unique flight number must be a combination of airline and flight number.
+
+
+DATABASE SCHEMA
+DB name: delays.db
+
+Tables per origin airport
+Fields:
+unique ID -
+flight number (airline + actual fl number) -
+airline-
+dest airport-
+dep delay
+arr delay
+delay types
+crs elapsed time
+distance
+year
+month
+day of month
+day of week
+crs dep time
+dep time
+crs arr time
+arr time
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
