@@ -101,7 +101,6 @@ Unique flight number must be a combination of airline and flight number.
 
 
 DATABASE SCHEMA
-DB name: delays.db
 
 Tables per origin airport
 Fields:
@@ -122,7 +121,10 @@ crs dep time
 dep time
 crs arr time
 arr time
+previous flight's unique id
 
+
+For temporal model, there is a lot of variation in how oftern flight fly. Do it based on T time in the past instead of N past flights?
 
 
 

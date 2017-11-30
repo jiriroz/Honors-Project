@@ -15,26 +15,21 @@ from one_hot_encoder import MyOneHotEncoder
 
 LOGGING = False
 
-TRAIN_FILE = "data/train.csv"
-VAL_FILE = "data/val.csv"
-#TEST_FILE = "data/test.csv" #off limits
-SMALL_FILE = "sample.csv"
-ONE_ROW = "onerow.csv"
-SORTED_2016 = "data/2016.csv"
-ALL = "data/all.csv"
-ALL_SORTED = "data/all.csv.sorted"
+TRAIN_DB = "data/train.db"
+VAL_DB = "data/val.db"
+TEST_DB = "data/test.db"
 
-fileAirports = open("data/airports.p", "rb")
+fileAirports = open("data/tables.p", "rb") #TODO per db
 TABLES = pickle.load(fileAirports)
 fileAirports.close()
 TOTAL_DATA = sum([TABLES[x] for x in TABLES])
 
 def main():
 
-    conn = sqlite3.connect("delays.db")
-    dataIter = dataIterator(11057, 10, "train", ["ID", "FL_NUM", "YEAR", "MONTH"], conn)
-    for row in dataIter:
-        print (row)
+    db = "airport14814"
+    print ("Querying ", db)
+    conn = sqlite3.connect(TRAIN_DB)
+    dataIter = dataIterator(db, 10, "train", ["ID", "FL_NUM", "YEAR", "MONTH"], conn)
     conn.close()
     return
 
@@ -359,14 +354,14 @@ def iterDataCsv(fname, features, yIndex):
                 continue
             yield preprocess(row, features, yIndex)
 
-def dataIterator(airportId, n, setType, features, conn): 
+def dataIterator(tableName, n, setType, features, conn): 
     featNames = ", ".join(features)
     criteria = getCriteria(setType)
     query = "SELECT {} FROM {} WHERE ID={} AND {}"
     result = []
 
     #Get data iterator from the database
-    if airportId == None:
+    if tableName == None:
         #For now store in array.
         nTable = {tbl:0 for tbl in TABLES}
         tables = list(nTable.keys())
@@ -377,21 +372,25 @@ def dataIterator(airportId, n, setType, features, conn):
         for table in TABLES:
             if nTable[table] == 0:
                 continue
-            cursor = conn.execute(query.format(featNames, table, criteria, nTable[table]))
-            for row in cursor:
-                result.append((table, row))
+            # In this unlikely event use replacements
+            repl = nTable[table] > TABLES[table]
+            ids = np.random.choice(nTable[table], TABLES[table], replace=repl)
+            for rowId in ids:
+                cursor = conn.execute(query.format(featNames, table, rowId, criteria))
+                row = cursor.fetchone()
+                result.append(row)
         return result
-            
     else:
-        tableName = "airport{}".format(airportId)
-        #Need to use while since some rows may not belong to the set
-        #ids = np.random.choice(TABLES[tableName], n, replace=False)
-        while len(result) < n:
-            rowId = random.randint(0, TABLES[tableName])
+        repl = n > TABLES[tableName]
+        if n > TABLES[tableName]:
+            print ("Table {} contains only {} rows. Selecting with replacement.".format(tableName, TABLES[tableName]))
+        ids = np.random.choice(TABLES[tableName], n, replace=repl)
+        for rowId in ids:
+            print ("Selecting rowID", rowId)
             cursor = conn.execute(query.format(featNames, tableName, rowId, criteria))
             row = cursor.fetchone()
-            if row != None:
-                result.append(row)
+            print (row)
+            result.append(row)
         return result
         
 def getCriteria(setType):
@@ -403,6 +402,9 @@ def getCriteria(setType):
         return "YEAR = 2017"
     else:
         raise ValueError("Set has to be train/val/test")
+
+def getPrevFlights(conn, n, rowId):
+    pass
 
 
 def preprocess(row, features, yIndex):

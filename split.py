@@ -3,6 +3,33 @@ import sys
 import subprocess
 from header import *
 
+train = open("data/train.csv", "w")
+val = open("data/val.csv", "w")
+test = open("data/test.csv", "w")
+tr = csv.writer(train)
+v = csv.writer(val)
+te = csv.writer(test)
+
+with open("data/all.csv", "r") as f:
+    reader = csv.reader(f)
+    first = True
+    for row in reader:
+        if first:
+            first = False
+            continue
+        if row[0] == "2017":
+            te.writerow(row)
+        elif row[0] == "2016":
+            v.writerow(row)
+        else:
+            tr.writerow(row)
+
+
+
+train.close()
+val.close()
+test.close()
+
 def inputMissing(fname):
     print (fname)
     with open(fname, "r") as fr:
@@ -15,9 +42,6 @@ def inputMissing(fname):
                         row[i] = "0"
                 writer.writerow(row)
     print ("Done " + fname)
-
-inputMissing(sys.argv[1])
-
 
 def shuffle(fname, N, k=5):
     # Shuffle a large csv file with N lines by performin a k-way

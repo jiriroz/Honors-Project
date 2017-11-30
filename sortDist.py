@@ -1,6 +1,7 @@
 import csv
+from header import *
 
-# Split by airline and sort each one based on flight number and date.
+# Split by airport and sort each one based on flight number and date.
 
 nWrite = 10000
 
@@ -11,12 +12,15 @@ def appendToCsv(fname, rows):
             writer.writerow(row)
 
 def getFlNum(row):
-    return row[4].strip() + row[7].strip()
+    return row[UNIQUE_CARRIER].strip() + row[FL_NUM].strip()
 
 def getAirlineKey(row):
-    return "{}-{}".format(row[4].strip(), row[0].strip())
+    return "{}-{}".format(row[UNIQUE_CARRIER].strip(), row[YEAR].strip())
 
-fname = "data/all.csv"
+def getAirportKey(row):
+    return "{}".format(row[ORIGIN_AIRPORT_ID].strip())
+
+fname = "data/test.csv"
 
 with open(fname, "r") as fr:
     reader = csv.reader(fr)
@@ -29,32 +33,30 @@ with open(fname, "r") as fr:
             i = 0
             continue
         i += 1
-        if i % 100000 == 0:
-            print ( i / 63490.0, "%")
-        airline = getAirlineKey(row)
-        if airline not in data:
-            data[airline] = []
-        data[airline].append(row)
-        if len(data[airline]) > nWrite:
-            print ("Writing to", airline)
-            appendToCsv("temp/{}.csv".format(airline), data[airline])
-            data[airline] = []
-    for airline in data:
-        print ("Writing to", airline)
-        appendToCsv("temp/{}.csv".format(airline), data[airline])
-        data[airline] = []
+        airport = getAirportKey(row)
+        if airport not in data:
+            data[airport] = []
+        data[airport].append(row)
+        if len(data[airport]) > nWrite:
+            print ("Writing to", airport)
+            appendToCsv("temp/{}.csv".format(airport), data[airport])
+            data[airport] = []
+    for airport in data:
+        print ("Writing to", airport)
+        appendToCsv("temp/{}.csv".format(airport), data[airport])
+        data[airport] = []
 
     with open(fname + ".sorted", "w") as fw:
         writer = csv.writer(fw)
         writer.writerow(header)
-        for airline in sorted(list(data.keys())):
-            print ("Processing", airline)
+        for airport in sorted(list(data.keys())):
+            print ("Processing", airport)
             rows = []
-            with open("temp/{}.csv".format(airline), "r") as fr:
+            with open("temp/{}.csv".format(airport), "r") as fr:
                 reader = csv.reader(fr)
                 for row in reader:
                     rows.append(row)
-                rows.sort(key = lambda x: (getFlNum(x), x[1], x[2]))
+                rows.sort(key = lambda x: (getFlNum(x), x[0], x[1], x[2]))
             for row in rows:
                 writer.writerow(row)
     print ("Done")
