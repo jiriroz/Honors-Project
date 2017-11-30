@@ -19,18 +19,18 @@ TRAIN_DB = "data/train.db"
 VAL_DB = "data/val.db"
 TEST_DB = "data/test.db"
 
-fileAirports = open("data/tables.p", "rb") #TODO per db
-TABLES = pickle.load(fileAirports)
-fileAirports.close()
-TOTAL_DATA = sum([TABLES[x] for x in TABLES])
+
 
 def main():
 
+    tables, total = loadSizes("data/tablesVal.p")
     db = "airport14814"
     print ("Querying ", db)
-    conn = sqlite3.connect(TRAIN_DB)
-    dataIter = dataIterator(db, 10, "train", ["ID", "FL_NUM", "YEAR", "MONTH"], conn)
+    conn = sqlite3.connect(VAL_DB)
+    dataIter = dataIterator(db, 20, ["ID", "FL_NUM", "YEAR", "MONTH"], conn, tables, total)
     conn.close()
+    for row in dataIter:
+        print (row)
     return
 
 
@@ -354,55 +354,42 @@ def iterDataCsv(fname, features, yIndex):
                 continue
             yield preprocess(row, features, yIndex)
 
-def dataIterator(tableName, n, setType, features, conn): 
+def dataIterator(tableName, n, features, conn, tables, totalData): 
     featNames = ", ".join(features)
-    criteria = getCriteria(setType)
-    query = "SELECT {} FROM {} WHERE ID={} AND {}"
+    query = "SELECT {} FROM {} WHERE ID={}"
     result = []
 
     #Get data iterator from the database
     if tableName == None:
         #For now store in array.
-        nTable = {tbl:0 for tbl in TABLES}
-        tables = list(nTable.keys())
-        probs = [TABLES[x]/TOTAL_DATA for x in tables]
-        choice = np.random.choice(len(tables), n, p=probs)
+        nTable = {tbl:0 for tbl in tables}
+        tableNames = list(nTable.keys())
+        probs = [tables[x]/totalData for x in tableNames]
+        choice = np.random.choice(len(tableNames), n, p=probs)
         for index in choice:
-            nTable[tables[index]] += 1
-        for table in TABLES:
+            nTable[tableNames[index]] += 1
+        for table in tables:
             if nTable[table] == 0:
                 continue
             # In this unlikely event use replacements
-            repl = nTable[table] > TABLES[table]
-            ids = np.random.choice(nTable[table], TABLES[table], replace=repl)
+            repl = nTable[table] > tables[table]
+            ids = np.random.choice(nTable[table], tables[table], replace=repl)
             for rowId in ids:
-                cursor = conn.execute(query.format(featNames, table, rowId, criteria))
+                cursor = conn.execute(query.format(featNames, table, rowId))
                 row = cursor.fetchone()
                 result.append(row)
         return result
     else:
-        repl = n > TABLES[tableName]
-        if n > TABLES[tableName]:
-            print ("Table {} contains only {} rows. Selecting with replacement.".format(tableName, TABLES[tableName]))
-        ids = np.random.choice(TABLES[tableName], n, replace=repl)
+        repl = n > tables[tableName]
+        if n > tables[tableName]:
+            print ("Table {} contains only {} rows. Selecting with replacement.".format(tableName, tables[tableName]))
+        ids = np.random.choice(tables[tableName], n, replace=repl)
         for rowId in ids:
-            print ("Selecting rowID", rowId)
-            cursor = conn.execute(query.format(featNames, tableName, rowId, criteria))
+            cursor = conn.execute(query.format(featNames, tableName, rowId))
             row = cursor.fetchone()
-            print (row)
             result.append(row)
         return result
         
-def getCriteria(setType):
-    if setType == "train":
-        return "YEAR < 2016"
-    elif setType == "val":
-        return "YEAR = 2016"
-    elif setType == "test":
-        return "YEAR = 2017"
-    else:
-        raise ValueError("Set has to be train/val/test")
-
 def getPrevFlights(conn, n, rowId):
     pass
 
@@ -450,6 +437,12 @@ def convertTimeVariable(t, period):
 
 def getFlNum(row):
     return row[UNIQUE_CARRIER].strip() + row[FL_NUM].strip()
+
+def loadSizes(pfile):
+    fileAirports = open(pfile, "rb")
+    tables = pickle.load(fileAirports)
+    fileAirports.close()
+    return tables, sum([tables[x] for x in tables])
 
 if __name__ == "__main__":
     main()
