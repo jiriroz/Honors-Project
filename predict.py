@@ -15,48 +15,25 @@ from one_hot_encoder import MyOneHotEncoder
 
 LOGGING = False
 
-TRAIN_DB = "data/train.db"
-VAL_DB = "data/val.db"
-TEST_DB = "data/test.db"
-
-
-
 def main():
 
-    tables, total = loadSizes("data/tablesVal.p")
-    db = "airport14814"
-    print ("Querying ", db)
-    conn = sqlite3.connect(VAL_DB)
-    dataIter = dataIterator(db, 20, ["ID", "FL_NUM", "YEAR", "MONTH"], conn, tables, total)
-    conn.close()
-    for row in dataIter:
-        print (row)
+    table = "airport14679"
+    #table = None
+    print ("Table", table)
+    
+    n = 10
+    #model = Model("model", 0, ["ARR_DELAY", "AIRLINE_ID", "DISTANCE"])
+    #mse = model.linearModel("train", table, n, train=True, fit=True)
+    #mse = model.polynomialModel("train", table, n, train=True, fit=True)
+
+    model = Model("temporal", ARR_DELAY, [])
+    mse = model.temporalModel("train", table, n, window=10, train=True, fit=True)
+    print (mse)
+
     return
-
-
-    #ntrain = 1000000
-    ntrain = 1000000
-    feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE, ORIGIN_AIRPORT_ID, DEST_AIRPORT_ID, ORIGIN_CITY_MARKET_ID, DEST_CITY_MARKET_ID]
 
     selected_feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE]
 
-    """
-    linear = Model("LinearModel", ARR_DELAY, selected_feats)
-    poly = Model("PolynomialModel", ARR_DELAY, selected_feats)
-
-    r2, mse1 = linear.linearModel(TRAIN_FILE, ntrain, train=True, fit=True)
-    r2, mse2 = poly.polynomialModel(TRAIN_FILE, ntrain, degree=2, train=True, fit=True)
-    r2, mse3 = linear.linearModel(VAL_FILE, ntrain, train=False, fit=True)
-    r2, mse4 = poly.polynomialModel(VAL_FILE, ntrain, degree=2, train=False, fit=True)
-
-    print ("Mse linear train:", mse1)
-    print ("Mse linear test:", mse3)
-    print ("Mse poly train:", mse2)
-    print ("Mse poly test:", mse4)
-    """
-
-    #temporal = Model("temporal", ARR_DELAY, [])
-    #temporal.temporalModel(SORTED_2016, ntrain, window=10)
 
 
 class Predictor(object):
@@ -126,171 +103,51 @@ class Model(object):
     def load(self):
         self.regr = pickle.load(open("models/{}.p".format(self.name), "rb"))
 
-    def temporalModel(self, fname, nExamples, window=1):
+    def temporalModel(self, db, table, nExamples, window=1, train=False, fit=True):
+        fields = ["ARR_DELAY", "PREV_FLIGHT"]
+        conn, tables, total = connectToDB(db)
+        rows, rowsY = [], []
+        for row in dataIterator(table, nExamples, fields, conn, tables, total):
+            x, y = preprocess(row, fields, 0)
+            rows.append(x)
+            rowsY.append(y)
 
-        flights = dict()
-        index = 0
-
-        nData = int(nExamples * (0.667 * window))
-        print ("Retrieving", nData)
-        # 10000000 good
-        # 15000000 too much
-        # 11250000 (0.75 * win size), win=15 perfect
-        for (x, y, row) in iterData(fname, self.features, self.yIndex):
-            if index >= nData:
-                break
-            flNum = getFlNum(row)
-            if flNum not in flights:
-                flights[flNum] = []
-            airline = row[AIRLINE_ID]
-            airport = row[ORIGIN_AIRPORT_ID]
-            flights[flNum].append(((airline, airport), y))
-            index += 1
-
-        X_train, Y_train = [], []
-        X_test, Y_test = [], []
-        nTest = int(nData/window)
-        count = 0
-
-        flNums = list(flights.keys())
-        for flNum in flNums:
-            if len(flights[flNum]) < window + 1:
-                del flights[flNum]
-
-        airlines = dict()
-        airports = dict()
-
-        flNums = list(flights.keys())
-        mse = 0.0
-        while count < nExamples:
-            flNum = random.choice(flNums)
-            n = len(flights[flNum])
-            index = random.randint(window, n - 1)
-            prev = []
-            for j in range(window):
-                prev.append(flights[flNum][index - j - 1][1])
-            y = flights[flNum][index][1]
-            mse += y**2
-
-            aline = flights[flNum][index][0][0]
-            aport = flights[flNum][index][0][1]
-
-            if aline not in airlines:
-                airlines[aline] = {"train":[[], []], "test":[[], []]}
-            if aport not in airports:
-                airports[aport] = {"train":[[], []], "test":[[], []]}
-
-            if random.random() < 0.8:
-                X_train.append(prev)
-                Y_train.append(y)
-                airlines[aline]["train"][0].append(prev)
-                airlines[aline]["train"][1].append(y)
-                airports[aport]["train"][0].append(prev)
-                airports[aport]["train"][1].append(y)
-            else:
-                X_test.append(prev)
-                Y_test.append(y)
-                airlines[aline]["test"][0].append(prev)
-                airlines[aline]["test"][1].append(y)
-                airports[aport]["test"][0].append(prev)
-                airports[aport]["test"][1].append(y)
-            count += 1
-
-        print ("Window size:", window)
-        print ("0 predict mse", mse / count)
-
-        degree = 2
-        poly = PolynomialFeatures(degree=degree)
-
-        print ("Computing airline models")
-        alineMse = []
-        for aline in airlines:
-            l1 = len(airlines[aline]["train"][0])
-            l2 = len(airlines[aline]["test"][0])
-            if l2 < 1000:
-                continue            
-            #print ("Airline", aline)
-            #print ("Len train", l1)
-            #print ("Len test", l2)
-            #print ()
-            Xtrain = np.array(airlines[aline]["train"][0])
-            Xtrain_poly = poly.fit_transform(Xtrain)
-            Ytrain = np.array(airlines[aline]["train"][1])
-
-            Xtest = np.array(airlines[aline]["test"][0])
-            Xtest_poly = poly.fit_transform(Xtest)
-            Ytest = np.array(airlines[aline]["test"][1])
-
-            regr = linear_model.LinearRegression()
-            regr.fit(Xtrain_poly, Ytrain)
-            pred = regr.predict(Xtest_poly)
-            mse = mean_squared_error(Ytest, pred)
-            alineMse.append(mse)
+        X, Y = [], []
+        for i in range(len(rows)):
+            #TODO what if table is null?
+            prev = getPrevFlights(conn, table, rows[i][0], window, ["ARR_DELAY"])
+            if prev != None:
+                X.append([d[0] for d in prev])
+                Y.append(rowsY[i])
             
-        print ("Computing airport models")
-        aportMse = []
-        for aport in airports:
-            l1 = len(airports[aport]["train"][0])
-            l2 = len(airports[aport]["test"][0])
-            if l2 < 1000:
-                continue            
-            #print ("Airport", aport)
-            #print ("Len train", l1)
-            #print ("Len test", l2)
-            #print ()
-            Xtrain = np.array(airports[aport]["train"][0])
-            Xtrain_poly = poly.fit_transform(Xtrain)
-            Ytrain = np.array(airports[aport]["train"][1])
+        for i in range(len(X)):
+            print (Y[i], X[i])
+            
+        X = np.array(X)
+        Y = np.array(Y)
+        print ("Valid data points:", len(Y))
+        print()
 
-            Xtest = np.array(airports[aport]["test"][0])
-            Xtest_poly = poly.fit_transform(Xtest)
-            Ytest = np.array(airports[aport]["test"][1])
+        #poly = PolynomialFeatures(degree=2)
+        #X = poly.fit_transform(X)
 
-            regr = linear_model.LinearRegression()
-            regr.fit(Xtrain_poly, Ytrain)
-            pred = regr.predict(Xtest_poly)
-            mse = mean_squared_error(Ytest, pred)
-            aportMse.append(mse)
+        if train:
+            self.regr = linear_model.LinearRegression()
+            self.regr.fit(X, Y)
+        if fit:
+            pred = self.regr.predict(X)
+            r2 = r2_score(Y, pred)
+            mse = mean_squared_error(Y, pred)
+        return mse
 
-        X_train = np.array(X_train)
-        X_train_poly = poly.fit_transform(X_train)
-        Y_train = np.array(Y_train)
-
-        X_test = np.array(X_test)
-        X_test_poly = poly.fit_transform(X_test)
-        Y_test = np.array(Y_test)
-
-        print ("Computing linear model")
-        regr = linear_model.LinearRegression()
-        regr.fit(X_train_poly, Y_train)
-        pred = regr.predict(X_test_poly)
-        mse_linear = mean_squared_error(Y_test, pred)
-
-        print ("Computing polynomial model")
-        regr = linear_model.LinearRegression()
-        regr.fit(X_train, Y_train)
-        pred = regr.predict(X_test)
-        mse_poly = mean_squared_error(Y_test, pred)
-    
-        #print ("Airline mses", alineMse)
-        #print ("Sample airport mses", random.sample(aportMse, 5))
-        print ()
-        print ("Linear mse", mse_linear)
-        print ("Polynomial mse", mse_poly)
-        print ("Average airline mse", sum(alineMse) / len(alineMse))
-        print ("Average airport mse", sum(aportMse) / len(aportMse))
-
-
-    def linearModel(self, fname, nExamples, train=False, fit=True):
+    def linearModel(self, db, table, nExamples, train=False, fit=True):
+        conn, tables, total = connectToDB(db)
         X = []
         Y = []
-        index = 0
-        for (x, y, row) in iterData(fname, self.features, self.yIndex):
-            if index >= nExamples:
-                break
+        for row in dataIterator(table, nExamples, self.features, conn, tables, total):
+            x, y = preprocess(row, self.features, self.yIndex)
             X.append(x)
             Y.append(y)
-            index += 1
         X = np.array(X)
         Y = np.array(Y)
 
@@ -302,22 +159,20 @@ class Model(object):
             pred = self.regr.predict(X)
             r2 = r2_score(Y, pred)
             mse = mean_squared_error(Y, pred)
-            return r2, mse
+            return mse
 
-    def polynomialModel(self, fname, nExamples, degree=1, train=False, fit=True):
+    def polynomialModel(self, db, table, nExamples, train=False, fit=True):
+        conn, tables, total = connectToDB(db)
         X = []
         Y = []
-        index = 0
-        for (x, y, row) in iterData(fname, self.features, self.yIndex):
-            if index >= nExamples:
-                break
+        for row in dataIterator(table, nExamples, self.features, conn, tables, total):
+            x, y = preprocess(row, self.features, self.yIndex)
             X.append(x)
             Y.append(y)
-            index += 1
         X = np.array(X)
         Y = np.array(Y)
 
-        poly = PolynomialFeatures(degree=degree)
+        poly = PolynomialFeatures(degree=2)
         X = poly.fit_transform(X)
 
         if train:
@@ -328,16 +183,13 @@ class Model(object):
             pred = self.regr.predict(X)
             r2 = r2_score(Y, pred)
             mse = mean_squared_error(Y, pred)
-            return r2, mse
+            return mse
 
-    def dummyModel(self, fname, nExamples):
-        index = 0
+    def dummyModel(self, db, table, nExamples):
+        conn, tables, total = connectToDB(db)
         mse = 0.0
-        for (x, y, row) in iterData(fname, [], self.yIndex):
-            if index >= nExamples:
-                break
-            mse += y ** 2
-            index += 1
+        for row in dataIterator(table, nExamples, self.features, conn, tables, total):
+            mse += row[self.yIndex] ** 2
         mse /= nExamples
         return mse
     
@@ -373,7 +225,7 @@ def dataIterator(tableName, n, features, conn, tables, totalData):
                 continue
             # In this unlikely event use replacements
             repl = nTable[table] > tables[table]
-            ids = np.random.choice(nTable[table], tables[table], replace=repl)
+            ids = np.random.choice(tables[table], nTable[table], replace=repl)
             for rowId in ids:
                 cursor = conn.execute(query.format(featNames, table, rowId))
                 row = cursor.fetchone()
@@ -390,47 +242,54 @@ def dataIterator(tableName, n, features, conn, tables, totalData):
             result.append(row)
         return result
         
-def getPrevFlights(conn, n, rowId):
-    pass
+def getPrevFlights(conn, table, prevRowId, window, fields):
+    query = "SELECT PREV_FLIGHT, {} FROM {} WHERE ID={}"
+    fields = ", ".join(fields)
+    result = []
+    for i in range(window):
+        if prevRowId == -1:
+            return None
+        cursor = conn.execute(query.format(fields, table, prevRowId))
+        row = cursor.fetchone()
+        if row == None:
+            print ("Reference to prev id doesn't exist: {}, ID {}"
+                   .format(table, prevId))
+            return None
+        prevRowId = row[0]
+        result.append(row[1:])
+    return result
 
-
-def preprocess(row, features, yIndex):
-    for feat in FLOAT_FEATURES:
-        row[feat] = float(row[feat])
-    for feat in INT_FEATURES:
-        row[feat] = int(float(row[feat]))
-    row[CRS_DEP_TIME] = int(int(row[CRS_DEP_TIME]) / 100) #extract hours
-    row[CRS_ARR_TIME] = int(int(row[CRS_ARR_TIME]) / 100)
-    for feat in CATEG_VARS:
-        #map categorical features so that they are in [0, number of values)
-        row[feat] = CATEG_VARS[feat][row[feat]]
+def preprocess(row, header, yIndex):
     featRow = []
-    nValues = []
-    for feat in features:
-        #print ("Processing feature ", feat)
-        if feat in TIME_VARS:
+    categVars = []
+    for i in range(len(header)):
+        if i == yIndex:
+            continue
+        value = row[i] # Row is a tuple which cannot be changed
+        if header[i] == "CRS_DEP_TIME" or header[i] == "CRS_ARR_TIME":
+            value = int(int(value) / 100)
+        if header[i] in TIME_VARS:
             #print ("Time variable")
-            a, b = convertTimeVariable(row[feat], TIME_VARS[feat])
+            a, b = convertTimeVariable(value, TIME_VARS[header[i]])
             featRow.append(a)
             featRow.append(b)
-            nValues.append(0)
-            nValues.append(0)
-        elif feat in CATEG_VARS:
-            nValues.append(len(CATEG_VARS[feat].keys()))
-            featRow.append(row[feat])
-            #print ("Categorical variable, n values: ", nValues[-1])
+            categVars.append(0)
+            categVars.append(0)
+        elif header[i] in CATEG_VARS:
+            #map categorical features so that they are in [0, number of values)
+            value = CATEG_VARS[header[i]][value]
+            categVars.append(len(CATEG_VARS[header[i]].keys()))
+            featRow.append(value)
+            #print ("Categorical variable, n values: ", categVars[-1])
         else:
             #print ("Numerical variable")
-            nValues.append(0)
-            featRow.append(row[feat])
-        
-    #print ("Performing one hot encoding")
-    #print ("Number of features:", len(nValues))
-    #print ("N values", nValues)
-    enc = MyOneHotEncoder(nValues=nValues) #make property variable
+            categVars.append(0)
+            featRow.append(value)
+            
+    enc = MyOneHotEncoder(categVars=categVars)
     featRow = enc.transform(featRow)
     y = row[yIndex]
-    return featRow, y, row
+    return featRow, y
 
 def convertTimeVariable(t, period):
     return math.sin(2 * math.pi * t / period), math.cos(2 * math.pi * t / period)
@@ -438,11 +297,29 @@ def convertTimeVariable(t, period):
 def getFlNum(row):
     return row[UNIQUE_CARRIER].strip() + row[FL_NUM].strip()
 
-def loadSizes(pfile):
-    fileAirports = open(pfile, "rb")
+def connectToDB(dbType):
+    trainDB, trainTables = "data/train.db", "data/tablesTrain.p"
+    valDB, valTables = "data/val.db", "data/tablesVal.p"
+    testDB, testTables = "data/test.db", "data/tablesTest.p"
+
+    if dbType == "train":
+        dbFile = trainDB
+        pFile = trainTables
+    elif dbType == "val":
+        dbFile = valDB
+        pFile = valTables
+    elif dbType == "test":
+        dbFile = testDB
+        pFile = testTables
+    else:
+        print ("Unknown database type", dbType)
+        return None, None
+    fileAirports = open(pFile, "rb")
     tables = pickle.load(fileAirports)
     fileAirports.close()
-    return tables, sum([tables[x] for x in tables])
+    conn = sqlite3.connect(dbFile)
+    total = sum([tables[x] for x in tables])
+    return conn, tables, total
 
 if __name__ == "__main__":
     main()
