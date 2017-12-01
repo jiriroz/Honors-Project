@@ -67,23 +67,23 @@ airline = pickle.load(open("models/airline.p", "rb"))
 airport = pickle.load(open("models/airport.p", "rb"))
 city = pickle.load(open("models/city.p", "rb"))
 
-CATEG_VARS[AIRLINE_ID] = airline
-CATEG_VARS[ORIGIN_AIRPORT_ID] = airport
-CATEG_VARS[DEST_AIRPORT_ID] = airport
-CATEG_VARS[ORIGIN_CITY_MARKET_ID] = city
-CATEG_VARS[DEST_CITY_MARKET_ID] = city
+CATEG_VARS["AIRLINE_ID"] = airline
+CATEG_VARS["ORIGIN_AIRPORT_ID"] = airport
+CATEG_VARS["DEST_AIRPORT_ID"] = airport
+CATEG_VARS["ORIGIN_CITY_MARKET_ID"] = city
+CATEG_VARS["DEST_CITY_MARKET_ID"] = city
 
-CATEG_VARS[MONTH] = {x:x for x in range(13)}
-#CATEG_VARS[DAY_OF_WEEK] = {x:x for x in range(8)}
-#CATEG_VARS[CRS_DEP_TIME] = {x:x for x in range(25)}
-#CATEG_VARS[CRS_ARR_TIME] = {x:x for x in range(25)}
+CATEG_VARS["MONTH"] = {x:x for x in range(13)}
+#CATEG_VARS["DAY_OF_WEEK"] = {x:x for x in range(8)}
+#CATEG_VARS["CRS_DEP_TIME"] = {x:x for x in range(25)}
+#CATEG_VARS["CRS_ARR_TIME"] = {x:x for x in range(25)}
 
 #Dict of feature: period
 TIME_VARS = dict()
-#TIME_VARS[MONTH] = 12
-TIME_VARS[DAY_OF_WEEK] = 7
-TIME_VARS[CRS_DEP_TIME] = 24
-TIME_VARS[CRS_ARR_TIME] = 24
+#TIME_VARS["MONTH"] = 12
+TIME_VARS["DAY_OF_WEEK"] = 7
+TIME_VARS["CRS_DEP_TIME"] = 24
+TIME_VARS["CRS_ARR_TIME"] = 24
 
 def featName(index):
     return HEADER[index]
