@@ -19,15 +19,16 @@ def main():
 
     table = "airport14679"
     #table = None
-    print ("Table", table)
     
-    n = 10
+    nTrain = 10000
+    nTest = int(nTrain/4)
     #model = Model("model", 0, ["ARR_DELAY", "AIRLINE_ID", "DISTANCE"])
     #mse = model.linearModel("train", table, n, train=True, fit=True)
     #mse = model.polynomialModel("train", table, n, train=True, fit=True)
 
     model = Model("temporal", ARR_DELAY, [])
-    mse = model.temporalModel("train", table, n, window=10, train=True, fit=True)
+    mse = model.temporalModel("train", None, nTrain, window=10, train=True, fit=True)
+    mse = model.temporalModel("val", None, nTest, window=10, train=False, fit=True)
     print (mse)
 
     return
@@ -107,26 +108,28 @@ class Model(object):
         fields = ["ARR_DELAY", "PREV_FLIGHT"]
         conn, tables, total = connectToDB(db)
         rows, rowsY = [], []
-        for row in dataIterator(table, nExamples, fields, conn, tables, total):
+        tablesPerRow = []
+        for row, tblName in dataIterator(table, nExamples, fields, conn, tables, total):
             x, y = preprocess(row, fields, 0)
             rows.append(x)
             rowsY.append(y)
+            if table == None:
+                tablesPerRow.append(tblName)
 
         X, Y = [], []
         for i in range(len(rows)):
             #TODO what if table is null?
-            prev = getPrevFlights(conn, table, rows[i][0], window, ["ARR_DELAY"])
+            tblName = table
+            if table == None:
+                tblName = tablesPerRow[i]
+            prev = getPrevFlights(conn, tblName, rows[i][0], window, ["ARR_DELAY"])
             if prev != None:
                 X.append([d[0] for d in prev])
                 Y.append(rowsY[i])
             
-        for i in range(len(X)):
-            print (Y[i], X[i])
-            
         X = np.array(X)
         Y = np.array(Y)
-        print ("Valid data points:", len(Y))
-        print()
+        #print ("Valid data points:", len(Y))
 
         #poly = PolynomialFeatures(degree=2)
         #X = poly.fit_transform(X)
@@ -144,7 +147,7 @@ class Model(object):
         conn, tables, total = connectToDB(db)
         X = []
         Y = []
-        for row in dataIterator(table, nExamples, self.features, conn, tables, total):
+        for row, table in dataIterator(table, nExamples, self.features, conn, tables, total):
             x, y = preprocess(row, self.features, self.yIndex)
             X.append(x)
             Y.append(y)
@@ -165,7 +168,7 @@ class Model(object):
         conn, tables, total = connectToDB(db)
         X = []
         Y = []
-        for row in dataIterator(table, nExamples, self.features, conn, tables, total):
+        for row, table in dataIterator(table, nExamples, self.features, conn, tables, total):
             x, y = preprocess(row, self.features, self.yIndex)
             X.append(x)
             Y.append(y)
@@ -188,24 +191,11 @@ class Model(object):
     def dummyModel(self, db, table, nExamples):
         conn, tables, total = connectToDB(db)
         mse = 0.0
-        for row in dataIterator(table, nExamples, self.features, conn, tables, total):
+        for row, table in dataIterator(table, nExamples, self.features, conn, tables, total):
             mse += row[self.yIndex] ** 2
         mse /= nExamples
         return mse
     
-
-def iterDataCsv(fname, features, yIndex):
-    #Helper generator to read from csv files
-    #Return preprocessed row as well as the original row
-    with open(fname, "r") as csvfile:
-        reader = csv.reader(csvfile)
-        first = True
-        for row in reader:
-            if first:
-                first = False
-                continue
-            yield preprocess(row, features, yIndex)
-
 def dataIterator(tableName, n, features, conn, tables, totalData): 
     featNames = ", ".join(features)
     query = "SELECT {} FROM {} WHERE ID={}"
@@ -229,7 +219,7 @@ def dataIterator(tableName, n, features, conn, tables, totalData):
             for rowId in ids:
                 cursor = conn.execute(query.format(featNames, table, rowId))
                 row = cursor.fetchone()
-                result.append(row)
+                result.append((row, table))
         return result
     else:
         repl = n > tables[tableName]
@@ -239,7 +229,7 @@ def dataIterator(tableName, n, features, conn, tables, totalData):
         for rowId in ids:
             cursor = conn.execute(query.format(featNames, tableName, rowId))
             row = cursor.fetchone()
-            result.append(row)
+            result.append((row, tableName))
         return result
         
 def getPrevFlights(conn, table, prevRowId, window, fields):
