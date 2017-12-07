@@ -2,6 +2,7 @@ import csv
 import math
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import pickle
 import random
 from sklearn import linear_model
@@ -17,80 +18,17 @@ LOGGING = False
 
 def main():
 
-    table = "airport14679"
-    #table = None
-    
-    nTrain = 10000
-    nTest = int(nTrain/4)
-    #model = Model("model", 0, ["ARR_DELAY", "AIRLINE_ID", "DISTANCE"])
-    #mse = model.linearModel("train", table, n, train=True, fit=True)
-    #mse = model.polynomialModel("train", table, n, train=True, fit=True)
-
-    model = Model("temporal", ARR_DELAY, [])
-    mse = model.temporalModel("train", None, nTrain, window=10, train=True, fit=True)
-    mse = model.temporalModel("val", None, nTest, window=10, train=False, fit=True)
-    print (mse)
-
-    return
-
-    selected_feats = [MONTH, DAY_OF_WEEK, CRS_ELAPSED_TIME, CRS_DEP_TIME, CRS_ARR_TIME, AIRLINE_ID, DISTANCE]
-
-
-
-class Predictor(object):
-
-    def __init__(self):
-        pass
-
-    def evaluate(self, fname):
-        """
-        @param fname csv filename containing flight data
-        Evaluate our prediction on this dataset.
-        @return an error measure (TBD).
-        """
-        pass
-
-    def predict(self, fname):
-        """
-        @param fname csv filename containing flight data
-        Compute expected delay for each flight.
-        """
-        delays = []
-        with open(fname, "r") as csvfile:
-            reader = csv.reader(csvfile)
-            i = -1
-            for row in reader:
-                if i == -1:
-                    i = 0
-                    continue
-                i += 1
-                delay = compDelayForFlight(row)
-                delays.append(delay)
-        delays = np.array(delay)
-        return delays
-
-    def compDelayForFlight(self, flightData):
-        carrier = self.compCarrierDelay(flightData)
-        weather = self.compExtrWeatherDelay(flightData)
-        nas = self.compNasDelay(flightData)
-        security = self.compSecurityDelay(flightData)
-        late = self.compLateAircraftDelay(flightData)
-        return carrier + weather + nas + security + late
-       
-    def compCarrierDelay(self, flightData):
-        return 0.0
-
-    def compExtrWeatherDelay(self, flightData):
-        return 0.0
-
-    def compNasDelay(self, flightData):
-        return 0.0
-
-    def compSecurityDelay(self, flightData):
-        return 0.0
-
-    def compLateAircraftDelay(self, flightData):
-        return 0.0
+    exp, poly = [], []
+    for i in range(3):
+        nTrain = 100000
+        nTest = int(nTrain/2)
+        model = Model("temporal", ARR_DELAY, [])
+        model.temporalModel("train", None, nTrain, degree=2, window=15, train=True, fit=False)
+        msePoly, mseExp = model.temporalModel("val", None, nTest, degree=2, window=15, train=False, fit=True)
+        poly.append(msePoly)
+        exp.append(mseExp)
+    print ("Avg mse poly:", np.mean(msePoly))
+    print ("Avg mse exp:", np.mean(mseExp))
 
 class Model(object):
     def __init__(self, name, yIndex, features):
@@ -104,7 +42,7 @@ class Model(object):
     def load(self):
         self.regr = pickle.load(open("models/{}.p".format(self.name), "rb"))
 
-    def temporalModel(self, db, table, nExamples, window=1, train=False, fit=True):
+    def timeSeriesModel(self, db, table, nExamples, alpha=1, train=False, fit=True):
         fields = ["ARR_DELAY", "PREV_FLIGHT"]
         conn, tables, total = connectToDB(db)
         rows, rowsY = [], []
@@ -118,21 +56,84 @@ class Model(object):
 
         X, Y = [], []
         for i in range(len(rows)):
-            #TODO what if table is null?
             tblName = table
             if table == None:
                 tblName = tablesPerRow[i]
-            prev = getPrevFlights(conn, tblName, rows[i][0], window, ["ARR_DELAY"])
-            if prev != None:
+            prev = getPrevFlights(conn, tblName, rows[i][0], 50, ["ARR_DELAY", "DAY_OF_WEEK"])
+            if len(prev) > 0:
                 X.append([d[0] for d in prev])
                 Y.append(rowsY[i])
             
         X = np.array(X)
         Y = np.array(Y)
-        #print ("Valid data points:", len(Y))
 
-        #poly = PolynomialFeatures(degree=2)
-        #X = poly.fit_transform(X)
+        mse = 0
+        if fit and len(X) > 0:
+            for i in range(len(X)):
+                s = X[i][-1]
+                for j in range(len(X[i]) - 2, -1, -1):
+                    s = alpha * X[i][j] + (1 - alpha) * s
+                mse += (s - Y[i]) ** 2
+                #print ("X: ", X[i])
+                #print ("Y: ", 
+                #if i < 3:
+                #    plt.plot(X_smooth[i])
+            mse /= len(X)
+
+        if train:
+            pass
+        if fit:
+            return mse
+
+
+    def temporalModel(self, db, table, nExamples, window=1, degree=1, train=False, fit=True):
+        fields = ["ARR_DELAY", "PREV_FLIGHT"]
+        conn, tables, total = connectToDB(db)
+        rows, rowsY = [], []
+        tablesPerRow = []
+        for row, tblName in dataIterator(table, nExamples, fields, conn, tables, total):
+            x, y = preprocess(row, fields, 0)
+            rows.append(x)
+            rowsY.append(y)
+            if table == None:
+                tablesPerRow.append(tblName)
+
+        X, Y = [], []
+        X_exp, Y_exp = [], []
+        for i in range(len(rows)):
+            tblName = table
+            if table == None:
+                tblName = tablesPerRow[i]
+            nGet = window
+            if fit:
+                nGet = -1
+            prev = getPrevFlights(conn, tblName, rows[i][0], nGet, ["ARR_DELAY", "DAY_OF_WEEK"])
+            if len(prev) >= window:
+                X.append([d[0] for d in prev[:window]])
+                Y.append(rowsY[i])
+            if len(prev) > 2:
+                X_exp.append([d[0] for d in prev])
+                Y_exp.append(rowsY[i])
+            if i < 5 and fit:
+                plt.plot([d[0] for d in prev])
+                plt.show()
+
+        mse_exp = 0
+        if fit and len(X_exp) > 0:
+            alpha = 0.2
+            for i in range(len(X_exp)):
+                s = (X_exp[i][-1] + X_exp[i][-2] + X_exp[i][-3]) / 3
+                for j in range(len(X_exp[i]) - 4, -1, -1):
+                    s = alpha * X_exp[i][j] + (1 - alpha) * s
+                mse_exp += (s - Y_exp[i]) ** 2
+            mse_exp /= len(X_exp)
+
+        X = np.array(X)
+        Y = np.array(Y)
+
+        if degree > 1:
+            poly = PolynomialFeatures(degree=degree)
+            X = poly.fit_transform(X)
 
         if train:
             self.regr = linear_model.LinearRegression()
@@ -141,7 +142,7 @@ class Model(object):
             pred = self.regr.predict(X)
             r2 = r2_score(Y, pred)
             mse = mean_squared_error(Y, pred)
-        return mse
+            return mse, mse_exp
 
     def linearModel(self, db, table, nExamples, train=False, fit=True):
         conn, tables, total = connectToDB(db)
@@ -214,8 +215,9 @@ def dataIterator(tableName, n, features, conn, tables, totalData):
             if nTable[table] == 0:
                 continue
             # In this unlikely event use replacements
-            repl = nTable[table] > tables[table]
-            ids = np.random.choice(tables[table], nTable[table], replace=repl)
+            if nTable[table] > tables[table]:
+                nTable[table] = tables[table]
+            ids = np.random.choice(tables[table], nTable[table], replace=False)
             for rowId in ids:
                 cursor = conn.execute(query.format(featNames, table, rowId))
                 row = cursor.fetchone()
@@ -224,8 +226,9 @@ def dataIterator(tableName, n, features, conn, tables, totalData):
     else:
         repl = n > tables[tableName]
         if n > tables[tableName]:
-            print ("Table {} contains only {} rows. Selecting with replacement.".format(tableName, tables[tableName]))
-        ids = np.random.choice(tables[tableName], n, replace=repl)
+            n = tables[tableName]
+            #print ("Table {} contains only {} rows. Selecting that many.".format(tableName, tables[tableName]))
+        ids = np.random.choice(tables[tableName], n, replace=False)
         for rowId in ids:
             cursor = conn.execute(query.format(featNames, tableName, rowId))
             row = cursor.fetchone()
@@ -236,17 +239,17 @@ def getPrevFlights(conn, table, prevRowId, window, fields):
     query = "SELECT PREV_FLIGHT, {} FROM {} WHERE ID={}"
     fields = ", ".join(fields)
     result = []
-    for i in range(window):
-        if prevRowId == -1:
-            return None
+    i = 0
+    while (window != -1 and i < window and prevRowId != -1) or (window == -1 and prevRowId != -1):
         cursor = conn.execute(query.format(fields, table, prevRowId))
         row = cursor.fetchone()
         if row == None:
             print ("Reference to prev id doesn't exist: {}, ID {}"
                    .format(table, prevId))
-            return None
+            return result
         prevRowId = row[0]
         result.append(row[1:])
+        i += 1
     return result
 
 def preprocess(row, header, yIndex):
