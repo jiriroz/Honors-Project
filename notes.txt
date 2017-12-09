@@ -128,11 +128,20 @@ For temporal model, there is a lot of variation in how oftern flight fly. Do it 
 
 
 
+Maximum number of exaples for training a model:
+Linear: 6000000 (40 features)
+Polynomial: 300000 (80 features)
+Temporal: 2000000 (window=10)
+
+
+Linear and poly model memory usage is linear with n
 
 
 
+Time series models:
+Exponential smoothing of first order works slightly worse than polynomial temporal model (alpha=0.2 found experimentally).
 
-
+Exponential smoothing of second order doesn't work well.
 
 
 

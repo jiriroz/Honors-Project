@@ -77,18 +77,14 @@ def fromDB():
         migrateTable(db, train, table, query.format(table, "< 2016"))
         print ()
         
-fromDB()
-
-
-
 def fromCsv():
     tables = dict()
 
-    conn = sqlite3.connect("delays.db")
+    conn = sqlite3.connect("data/test.db")
 
     errors = 0
 
-    with open("data/all.csv.sorted", "r") as f:
+    with open("data/2017-8.csv.sorted", "r") as f:
         reader = csv.reader(f)
         first = True
         for row in reader:
@@ -97,10 +93,13 @@ def fromCsv():
                 first = False
                 continue
             tblName = "airport{}".format(row[ORIGIN_AIRPORT_ID])
+            for delay in ALL_DELAYS:
+                if row[delay] == "":
+                    row[delay] = "0"
             if tblName not in tables:
                 tables[tblName] = 0
                 print ("Create table", tblName)
-                conn.execute(CREATE.format(tblName))
+                #conn.execute(CREATE.format(tblName))
             for feat in INT_FEATURES:
                 row[feat] = int(float(row[feat]))
 
@@ -132,3 +131,5 @@ def fromCsv():
     conn.close()
     print ("Done")
     print ("Errors:", errors)
+
+fromCsv()

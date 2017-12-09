@@ -20,7 +20,7 @@ def getAirlineKey(row):
 def getAirportKey(row):
     return "{}".format(row[ORIGIN_AIRPORT_ID].strip())
 
-fname = "data/test.csv"
+fname = "data/2017-8.csv"
 
 with open(fname, "r") as fr:
     reader = csv.reader(fr)

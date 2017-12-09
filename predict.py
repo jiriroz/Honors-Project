@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import pickle
 import random
+from scipy.optimize import minimize
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.preprocessing import PolynomialFeatures
@@ -18,17 +19,22 @@ LOGGING = False
 
 def main():
 
-    exp, poly = [], []
-    for i in range(3):
-        nTrain = 100000
-        nTest = int(nTrain/2)
-        model = Model("temporal", ARR_DELAY, [])
-        model.temporalModel("train", None, nTrain, degree=2, window=15, train=True, fit=False)
-        msePoly, mseExp = model.temporalModel("val", None, nTest, degree=2, window=15, train=False, fit=True)
-        poly.append(msePoly)
-        exp.append(mseExp)
-    print ("Avg mse poly:", np.mean(msePoly))
-    print ("Avg mse exp:", np.mean(mseExp))
+    alpha = 0.5
+    gamma = 0.5
+    ag = [(0.8, 0.8), (0.8, 0.5), (0.5, 0.5)]
+    for alpha in [0.8, 0.5, 0.2]:
+        for gamma in [0.8, 0.5, 0.2]:
+            print ("Alpha=", alpha, "gamma=", gamma)
+            mses1, mses2 = [], []
+            for i in range(1):
+                nTrain = 10000
+                nTest = int(nTrain/2)
+                model = Model("timeSeries", ARR_DELAY, [])
+                mse1, mse2 = model.timeSeriesModel("train", None, nTrain, alpha=alpha, gamma=gamma, train=False, fit=True)
+                mses1.append(mse1)
+                mses2.append(mse2)
+            print ("Avg mse1:", np.mean(mses1))
+            print ("Avg mse2:", np.mean(mses2))
 
 class Model(object):
     def __init__(self, name, yIndex, features):
@@ -42,7 +48,11 @@ class Model(object):
     def load(self):
         self.regr = pickle.load(open("models/{}.p".format(self.name), "rb"))
 
-    def timeSeriesModel(self, db, table, nExamples, alpha=1, train=False, fit=True):
+    def predict(self, flNum, date, originAirportId):
+        if self.name == "temporalPoly15":
+            delay = self.temporalModelPredict(self, flNum, date, originAirportId)
+
+    def timeSeriesModel(self, db, table, nExamples, alpha=1, gamma=1, train=False, fit=True):
         fields = ["ARR_DELAY", "PREV_FLIGHT"]
         conn, tables, total = connectToDB(db)
         rows, rowsY = [], []
@@ -59,31 +69,43 @@ class Model(object):
             tblName = table
             if table == None:
                 tblName = tablesPerRow[i]
-            prev = getPrevFlights(conn, tblName, rows[i][0], 50, ["ARR_DELAY", "DAY_OF_WEEK"])
-            if len(prev) > 0:
+            prev = getPrevFlights(conn, tblName, rows[i][0], -1, ["ARR_DELAY", "DAY_OF_WEEK"])
+            seq = [d[0] for d in prev]
+            days = [d[1] for d in prev]
+            if len(prev) > 1:
                 X.append([d[0] for d in prev])
                 Y.append(rowsY[i])
+            if i < 5 and fit:
+                com = 1 / alpha - 1
+                seqpd = pd.DataFrame(data=seq)
+                ewma = pd.ewma(seqpd, com=com)
+                #plt.plot(seq, linewidth=2)
+                #plt.plot(pd.ewma(seq, com=com), linewidth=2)
+                #plt.plot(days, seq, "o")
+                #plt.show()
             
         X = np.array(X)
         Y = np.array(Y)
 
-        mse = 0
+        mse1 = 0
+        mse2 = 0
         if fit and len(X) > 0:
             for i in range(len(X)):
-                s = X[i][-1]
-                for j in range(len(X[i]) - 2, -1, -1):
-                    s = alpha * X[i][j] + (1 - alpha) * s
-                mse += (s - Y[i]) ** 2
-                #print ("X: ", X[i])
-                #print ("Y: ", 
-                #if i < 3:
-                #    plt.plot(X_smooth[i])
-            mse /= len(X)
+                x = X[i]
+                y = Y[i]
+                xSmooth1 = expSmooth(alpha, x)
+                xSmooth2 = expSmooth(alpha, x, order=2, gamma=gamma)
+                mse1 += (xSmooth1 - y) ** 2
+                mse2 += (xSmooth2 - y) ** 2
+                #plt.plot(xSmooth, linewidth=1.5)
+                #plt.show()
+            mse1 /= len(X)
+            mse2 /= len(X)
 
         if train:
             pass
         if fit:
-            return mse
+            return mse1, mse2
 
 
     def temporalModel(self, db, table, nExamples, window=1, degree=1, train=False, fit=True):
@@ -99,34 +121,16 @@ class Model(object):
                 tablesPerRow.append(tblName)
 
         X, Y = [], []
-        X_exp, Y_exp = [], []
         for i in range(len(rows)):
             tblName = table
             if table == None:
                 tblName = tablesPerRow[i]
             nGet = window
-            if fit:
-                nGet = -1
             prev = getPrevFlights(conn, tblName, rows[i][0], nGet, ["ARR_DELAY", "DAY_OF_WEEK"])
+            seq = [d[0] for d in prev]
             if len(prev) >= window:
-                X.append([d[0] for d in prev[:window]])
+                X.append(seq[:window])
                 Y.append(rowsY[i])
-            if len(prev) > 2:
-                X_exp.append([d[0] for d in prev])
-                Y_exp.append(rowsY[i])
-            if i < 5 and fit:
-                plt.plot([d[0] for d in prev])
-                plt.show()
-
-        mse_exp = 0
-        if fit and len(X_exp) > 0:
-            alpha = 0.2
-            for i in range(len(X_exp)):
-                s = (X_exp[i][-1] + X_exp[i][-2] + X_exp[i][-3]) / 3
-                for j in range(len(X_exp[i]) - 4, -1, -1):
-                    s = alpha * X_exp[i][j] + (1 - alpha) * s
-                mse_exp += (s - Y_exp[i]) ** 2
-            mse_exp /= len(X_exp)
 
         X = np.array(X)
         Y = np.array(Y)
@@ -142,7 +146,12 @@ class Model(object):
             pred = self.regr.predict(X)
             r2 = r2_score(Y, pred)
             mse = mean_squared_error(Y, pred)
-            return mse, mse_exp
+            return mse
+
+    def temporalModelPredict(self, db, window=15):
+        conn, tables, total = connectToDB(db)
+        prev = getPrevFlights(conn, tblName, rows[i][0], nGet, ["ARR_DELAY", "DAY_OF_WEEK"])
+
 
     def linearModel(self, db, table, nExamples, train=False, fit=True):
         conn, tables, total = connectToDB(db)
@@ -250,6 +259,7 @@ def getPrevFlights(conn, table, prevRowId, window, fields):
         prevRowId = row[0]
         result.append(row[1:])
         i += 1
+    result = result[::-1]
     return result
 
 def preprocess(row, header, yIndex):
@@ -313,6 +323,26 @@ def connectToDB(dbType):
     conn = sqlite3.connect(dbFile)
     total = sum([tables[x] for x in tables])
     return conn, tables, total
+
+def expSmooth(alpha, x, order=1, gamma=0):
+    S = np.empty(len(x), float)
+    b = np.empty(len(x), float)
+    S[0] = x[0]
+    b[0] = x[1] - x[0]
+    for j in range(1, len(x)):
+        if order == 2:
+            S[j] = alpha * x[j-1] + (1-alpha) * (S[j-1] + b[j-1])
+            b[j] = gamma * (S[j] - S[j-1]) + (1-gamma) * b[j-1]
+        else:
+            S[j] = alpha * x[j-1] + (1-alpha) * S[j-1]
+    if order == 2:
+        return S[-1] + b[-1]
+    else:
+        return S[-1]
+
+def expSmoothDiff(alpha, x):
+    diff = expSmooth(alpha, x) - x
+    return np.mean(diff/x)
 
 if __name__ == "__main__":
     main()
