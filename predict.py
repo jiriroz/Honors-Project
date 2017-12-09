@@ -19,7 +19,7 @@ LOGGING = False
 
 def main():
 
-    nTrain = 10000
+    nTrain = 2
     nTest = int(nTrain/2)
     model = Model("temporalLinear15All", ARR_DELAY, [])
     model.temporalModel("train", None, nTrain, window=15, train=True, fit=False)
@@ -42,10 +42,9 @@ class Model(object):
 
     def predict(self, conn, flNum, date, originAirportId):
         if self.name == "temporalLinear15All":
-            delay = self.temporalModelPredict(self, conn, flNum, date, originAirportId)
+            return self.temporalModelPredict(conn, flNum, date, originAirportId, window=15, degree=1)
         elif self.name == "temporalPoly15All":
-            delay = self.temporalModelPredict(self, conn, flNum, date, originAirportId)
-        return delay
+            return self.temporalModelPredict(conn, flNum, date, originAirportId, window=15, degree=2)
 
     def timeSeriesModel(self, db, table, nExamples, alpha=1, gamma=1, train=False, fit=True):
         fields = ["ARR_DELAY", "PREV_FLIGHT"]
@@ -63,7 +62,7 @@ class Model(object):
         for i in range(len(rows)):
             tblName = table
             if table == None:
-                tblName = tableserRow[i]
+                tblName = tablePerRow[i]
             prev = getPrevFlights(conn, tblName, rows[i][0], -1, ["ARR_DELAY", "DAY_OF_WEEK"])
             seq = [d[0] for d in prev]
             days = [d[1] for d in prev]
@@ -120,8 +119,7 @@ class Model(object):
             tblName = table
             if table == None:
                 tblName = tablePerRow[i]
-            nGet = window
-            prev = getPrevFlights(conn, tblName, rows[i][0], nGet, ["ARR_DELAY", "DAY_OF_WEEK"])
+            prev = getPrevFlights(conn, tblName, rows[i][0], window, ["ARR_DELAY", "DAY_OF_WEEK"])
             seq = [d[0] for d in prev]
             if len(prev) >= window:
                 X.append(seq[:window])
@@ -143,22 +141,26 @@ class Model(object):
             mse = mean_squared_error(Y, pred)
             return mse
 
-    def temporalModelPredict(self, conn, flNum, date, origin, window=15):
+    def temporalModelPredict(self, conn, flNum, date, origin, window=15, degree=1):
         tblName = "airport{}".format(origin)
 
-        query = "SELECT PREV_FLIGHT FROM {} WHERE FL_NUM={} ORDER BY YEAR DESC, MONTH DESC, DAY_OF_MONTH DESC LIMIT 1"
+        query = "SELECT PREV_FLIGHT FROM {} WHERE FL_NUM='{}' ORDER BY YEAR DESC, MONTH DESC, DAY_OF_MONTH DESC LIMIT 1"
         cursor = conn.execute(query.format(tblName, flNum))
         res = cursor.fetchone()
+        if res == None:
+            return None, "Flight doesn't exist at this airport."
         prevRowId = res[0]
 
         prev = getPrevFlights(conn, tblName, prevRowId, window, ["ARR_DELAY"])
+        prev = [d[0] for d in prev]
         if len(prev) < window:
-            error = "Not enough previous flights"
-            # TODO
+            return None, "Not enough previous flights."
         X = np.array([prev])
+        if degree > 2:
+            poly = PolynomialFeatures(degree=degree)
+            X = poly.fit_transform(X)
         pred = self.regr.predict(X)
-        return pred[0]
-
+        return pred[0], ""
 
     def linearModel(self, db, table, nExamples, train=False, fit=True):
         conn, tables, total = connectToDB(db)
