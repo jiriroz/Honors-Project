@@ -1,0 +1,15 @@
+#header {
+    color: #4A4A4A;
+}
+
+body {
+    /* background: white url("images/747.jpg") no-repeat left top; */
+}
+
+#buttonCompute {
+    margin: auto;
+}
+
+.top-offset {
+    height: 25%;
+}

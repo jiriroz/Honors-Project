@@ -1,0 +1,66 @@
+<!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css">
+
+<!-- jQuery library -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script> 
+
+<!-- jQuery UI -->
+<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+
+<!-- Popper JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.6/umd/popper.min.js"></script>
+
+<!-- Latest compiled JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/js/bootstrap.min.js"></script>
+
+{% load static %}
+<link rel="stylesheet" type="text/css" href="{% static 'delaysapp/style.css' %}" />
+
+<script>
+    $( function() {
+    $( "#datepicker" ).datepicker();
+    } );
+</script>
+
+<div class="top-offset row"></div>
+
+<div class="container-fluid">
+
+<h1 class="text-center" id="header">Predict Airline Delays</h1>
+
+{% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
+
+
+<div class="jumbotron">
+
+<form action="{% url 'compute' %}" method="post">
+{% csrf_token %}
+
+<div class="row">
+<div class="col-md-1"> </div>
+<div class="col-md-3 form-group input-group-lg">
+    <input type="text" class="form-control input-lg" name="flNum" id="flNum" placeholder="Flight number" />
+</div>
+
+<div class="col-md-3 form-group input-group-lg">
+    <input type="text" class="form-control input-lg" name="airport" id="airport" placeholder="Departing airport" />
+</div>
+
+<div class="col-md-3 form-group input-group-lg">
+    <input type="text" class="form-control input-lg" name="depdate" id="datepicker" placeholder="Departure date">
+</div>
+<div class="col-md-1"> </div>
+</div>
+
+<div class="row">
+<div class="col-md-5"> </div>
+<div class="col-md-2">
+<button id="buttonCompute" type="submit" class="btn btn-primary btn-lg">Estimate delay</button>
+</div>
+<div class="col-md-5"> </div>
+</form>
+
+</div>
+
+</div>

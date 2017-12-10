@@ -4,7 +4,8 @@ from . import views
 
 urlpatterns = [
     path('', views.index, name='index'),
-    path('delays', views.delays, name='delays'),
+    path('delays', views.queryDelays, name='queryDelays'),
+    path('delays/compute', views.computeDelay, name='compute'),
     # ex: /polls/5/
     path('<int:question_id>/', views.detail, name='detail'),
     # ex: /polls/5/results/

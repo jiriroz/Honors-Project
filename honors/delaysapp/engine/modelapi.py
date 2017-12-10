@@ -10,7 +10,6 @@ from delaysapp.engine.header import *
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 DBTYPE = "test" #db type will be all
-CONN, TABLES, TOTAL = predict.connectToDB(DBTYPE)
 modelName = "temporalLinear15All"
 #modelName = "temporalPoly15All"
 MODEL = predict.Model(modelName, ARR_DELAY, [], load=True)
@@ -19,19 +18,22 @@ MODEL = predict.Model(modelName, ARR_DELAY, [], load=True)
 AIRPORTS = pickle.load(open(os.path.join(BASE_DIR, "keys/airportCodes.p"), "rb"))
 
 def getDelayForFlight(flNum, originAirportName, date):
-    #valid = validateFlight TODO
+    CONN, TABLES, TOTAL = predict.connectToDB(DBTYPE)
     if originAirportName not in AIRPORTS:
         return None, "Airport doesn't exist."
     originAirportId = AIRPORTS[originAirportName]
     pred, error = MODEL.predict(CONN, flNum, date, originAirportId)
+    if pred != None:
+        error = None
     return pred, error
 
 tests = [("DL472", "JFK"), ("AA33", "JFK"), ("B6123", "JFK"), ("NK224", "ORD"), ("UA1166", "ORD"), ("UA116", "BLA"), ("AA33", "ORD")]
 
-for (flnum, aport) in tests:
-    delay, error = getDelayForFlight(flnum, aport, datetime.date(2017, 12, 11))
-    if delay != None:
-        print ("Delay:", delay)
-    else:
-        print (error)
+if __name__ == "__main__":
+    for (flnum, aport) in tests:
+        delay, error = getDelayForFlight(flnum, aport, datetime.date(2017, 12, 11))
+        if delay != None:
+            print ("Delay:", delay)
+        else:
+            print (error)
 

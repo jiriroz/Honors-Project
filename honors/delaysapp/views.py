@@ -1,3 +1,5 @@
+import datetime
+
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, HttpResponseRedirect
 from django.http import Http404
@@ -5,12 +7,27 @@ from django.template import loader
 from django.urls import reverse
 
 from .models import Question
-from delaysapp.engine.header import *
-import delaysapp.engine.predict
-import delaysapp.engine.modelapi
+import delaysapp.engine.modelapi as modelapi
 
-def delays(request):
-    return HttpResponse("Here will be info about delays")
+def queryDelays(request):
+    template = loader.get_template("delaysapp/input.html")
+    return HttpResponse(template.render(dict(), request))
+
+def computeDelay(request):
+    try:
+        flNum = request.POST["flNum"]
+        airport = request.POST["airport"]
+    except KeyError:
+        return HttpResponse("You didn't select a choice")
+    delay, error = modelapi.getDelayForFlight(flNum, airport, datetime.date(2017, 12, 12))
+    context = {
+        "flNum": flNum,
+        "airport": airport,
+        "delay": delay,
+        "error": error
+    }
+    template = loader.get_template("delaysapp/output.html")
+    return HttpResponse(template.render(context, request))
 
 def index(request):
     latest_question_list = Question.objects.order_by('-pub_date')[:5]
