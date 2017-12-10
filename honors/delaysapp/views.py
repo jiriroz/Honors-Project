@@ -5,6 +5,9 @@ from django.template import loader
 from django.urls import reverse
 
 from .models import Question
+from delaysapp.engine.header import *
+import delaysapp.engine.predict
+import delaysapp.engine.modelapi
 
 def delays(request):
     return HttpResponse("Here will be info about delays")

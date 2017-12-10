@@ -2,6 +2,7 @@ import csv
 import math
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 import pandas as pd
 import pickle
 import random
@@ -12,16 +13,19 @@ from sklearn.preprocessing import PolynomialFeatures
 import sqlite3
 import time
 
-from header import *
-from one_hot_encoder import MyOneHotEncoder
+from delaysapp.engine.header import *
+from delaysapp.engine.one_hot_encoder import MyOneHotEncoder
 
 LOGGING = False
 
+# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 def main():
 
-    nTrain = 2
+    nTrain = 300000
     nTest = int(nTrain/2)
-    model = Model("temporalLinear15All", ARR_DELAY, [])
+    model = Model("temporalPoly15All", ARR_DELAY, [])
     model.temporalModel("train", None, nTrain, window=15, train=True, fit=False)
     mse = model.temporalModel("val", None, nTest, window=15, train=False, fit=True)
     print (mse)
@@ -35,10 +39,10 @@ class Model(object):
             self.load()
 
     def save(self):
-        pickle.dump(self.regr, open("models/{}.p".format(self.name), "wb"))
+        pickle.dump(self.regr, open(os.path.join(BASE_DIR, "models/{}.p".format(self.name)), "wb"))
 
     def load(self):
-        self.regr = pickle.load(open("models/{}.p".format(self.name), "rb"))
+        self.regr = pickle.load(open(os.path.join(BASE_DIR, "models/{}.p".format(self.name)), "rb"))
 
     def predict(self, conn, flNum, date, originAirportId):
         if self.name == "temporalLinear15All":
@@ -326,10 +330,10 @@ def connectToDB(dbType):
     else:
         print ("Unknown database type", dbType)
         return None, None
-    fileAirports = open(pFile, "rb")
+    fileAirports = open(os.path.join(BASE_DIR, pFile), "rb")
     tables = pickle.load(fileAirports)
     fileAirports.close()
-    conn = sqlite3.connect(dbFile)
+    conn = sqlite3.connect(os.path.join(BASE_DIR, dbFile))
     total = sum([tables[x] for x in tables])
     return conn, tables, total
 

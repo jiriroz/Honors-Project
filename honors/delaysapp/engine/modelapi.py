@@ -1,15 +1,22 @@
 import datetime
 import pickle
-import lhapi
-import predict
-from header import *
+import os
+
+import delaysapp.engine.lhapi as lhapi
+import delaysapp.engine.predict as predict
+from delaysapp.engine.header import *
+
+# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 DBTYPE = "test" #db type will be all
 CONN, TABLES, TOTAL = predict.connectToDB(DBTYPE)
-MODEL = predict.Model("temporalLinear15All", ARR_DELAY, [], load=True)
+modelName = "temporalLinear15All"
+#modelName = "temporalPoly15All"
+MODEL = predict.Model(modelName, ARR_DELAY, [], load=True)
 
 # IATA airport code => DOT airport ID
-AIRPORTS = pickle.load(open("keys/airportCodes.p", "rb"))
+AIRPORTS = pickle.load(open(os.path.join(BASE_DIR, "keys/airportCodes.p"), "rb"))
 
 def getDelayForFlight(flNum, originAirportName, date):
     #valid = validateFlight TODO
@@ -23,7 +30,6 @@ tests = [("DL472", "JFK"), ("AA33", "JFK"), ("B6123", "JFK"), ("NK224", "ORD"), 
 
 for (flnum, aport) in tests:
     delay, error = getDelayForFlight(flnum, aport, datetime.date(2017, 12, 11))
-
     if delay != None:
         print ("Delay:", delay)
     else:

@@ -1,4 +1,5 @@
 import pickle
+import os
 
 HEADER = ['YEAR', 'MONTH', 'DAY_OF_MONTH', 'DAY_OF_WEEK', 'UNIQUE_CARRIER', 'AIRLINE_ID', 'TAIL_NUM', 'FL_NUM', 'ORIGIN_AIRPORT_ID', 'ORIGIN_AIRPORT_SEQ_ID', 'ORIGIN_CITY_MARKET_ID', 'DEST_AIRPORT_ID', 'DEST_AIRPORT_SEQ_ID', 'DEST_CITY_MARKET_ID', 'CRS_DEP_TIME', 'DEP_TIME', 'DEP_DELAY', 'DEP_DELAY_NEW', 'DEP_DEL15', 'DEP_DELAY_GROUP', 'DEP_TIME_BLK', 'TAXI_OUT', 'WHEELS_OFF', 'WHEELS_ON', 'TAXI_IN', 'CRS_ARR_TIME', 'ARR_TIME', 'ARR_DELAY', 'ARR_DELAY_NEW', 'ARR_DEL15', 'ARR_DELAY_GROUP', 'ARR_TIME_BLK', 'CANCELLED', 'CANCELLATION_CODE', 'DIVERTED', 'CRS_ELAPSED_TIME', 'ACTUAL_ELAPSED_TIME', 'AIR_TIME', 'FLIGHTS', 'DISTANCE', 'DISTANCE_GROUP', 'CARRIER_DELAY', 'WEATHER_DELAY', 'NAS_DELAY', 'SECURITY_DELAY', 'LATE_AIRCRAFT_DELAY']
 
@@ -63,9 +64,13 @@ Either (test):
 MONTH, DAY_OF_WEEK, CRS_DEP_TIME (hour), CRS_ARR_TIME (hour)
 """
 CATEG_VARS = dict()
-airline = pickle.load(open("models/airline.p", "rb"))
-airport = pickle.load(open("models/airport.p", "rb"))
-city = pickle.load(open("models/city.p", "rb"))
+
+# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+airline = pickle.load(open(os.path.join(BASE_DIR, "models/airline.p"), "rb"))
+airport = pickle.load(open(os.path.join(BASE_DIR, "models/airport.p"), "rb"))
+city = pickle.load(open(os.path.join(BASE_DIR, "models/city.p"), "rb"))
 
 CATEG_VARS["AIRLINE_ID"] = airline
 CATEG_VARS["ORIGIN_AIRPORT_ID"] = airport
