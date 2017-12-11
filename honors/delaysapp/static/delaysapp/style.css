@@ -10,6 +10,28 @@ body {
     margin: auto;
 }
 
-.top-offset {
+.top-offset-input {
     height: 25%;
+}
+
+.top-offset-output {
+    height: 15%;
+}
+
+.mid-offset-output {
+    height: 10%;
+}
+
+.origin {
+    padding-left: 48%;
+    font-size: 1.5em;
+}
+
+.destination {
+    padding-right: 48%;
+    font-size: 1.5em;
+}
+
+.duration-delay {
+    font-size: 1.5em;
 }

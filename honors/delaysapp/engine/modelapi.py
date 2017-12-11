@@ -1,6 +1,7 @@
 import datetime
 import pickle
 import os
+import sys
 
 import delaysapp.engine.lhapi as lhapi
 import delaysapp.engine.predict as predict
@@ -29,7 +30,7 @@ def getDelayForFlight(flNum, originAirportName, date):
 
 tests = [("DL472", "JFK"), ("AA33", "JFK"), ("B6123", "JFK"), ("NK224", "ORD"), ("UA1166", "ORD"), ("UA116", "BLA"), ("AA33", "ORD")]
 
-if __name__ == "__main__":
+if sys.argv[1] == "runmodule":
     for (flnum, aport) in tests:
         delay, error = getDelayForFlight(flnum, aport, datetime.date(2017, 12, 11))
         if delay != None:

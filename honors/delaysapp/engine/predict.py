@@ -2,7 +2,7 @@ import csv
 import math
 import matplotlib.pyplot as plt
 import numpy as np
-import os
+import os, sys
 import pandas as pd
 import pickle
 import random
@@ -23,7 +23,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def main():
 
-    nTrain = 300000
+    nTrain = 300
     nTest = int(nTrain/2)
     model = Model("temporalPoly15All", ARR_DELAY, [])
     model.temporalModel("train", None, nTrain, window=15, train=True, fit=False)
@@ -357,5 +357,5 @@ def expSmoothDiff(alpha, x):
     diff = expSmooth(alpha, x) - x
     return np.mean(diff/x)
 
-if __name__ == "__main__":
+if sys.argv[1] == "runmodule":
     main()
