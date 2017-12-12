@@ -11,7 +11,7 @@ from delaysapp.engine.header import *
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 DBTYPE = "test" #db type will be all
-modelName = "temporalLinear15All"
+modelName = "temporalLinear30All"
 #modelName = "temporalPoly15All"
 MODEL = predict.Model(modelName, ARR_DELAY, [], load=True)
 
