@@ -143,12 +143,9 @@ Exponential smoothing of first order works slightly worse than polynomial tempor
 
 Exponential smoothing of second order doesn't work well.
 
+Cutoff 1.4 for exponential smoothing works the best.
 
-
-
-
-
-
+Alpha=0.2 works best for exp smoothing based on dow.
 
 
 

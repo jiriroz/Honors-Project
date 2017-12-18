@@ -11,8 +11,7 @@ from delaysapp.engine.header import *
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 DBTYPE = "test" #db type will be all
-modelName = "temporalLinear30All"
-#modelName = "temporalPoly15All"
+modelName = "temporalPoly15All"
 MODEL = predict.Model(modelName, ARR_DELAY, [], load=True)
 
 # IATA airport code => DOT airport ID
@@ -23,10 +22,10 @@ def getDelayForFlight(flNum, originAirportName, date):
     if originAirportName not in AIRPORTS:
         return None, "Airport doesn't exist."
     originAirportId = AIRPORTS[originAirportName]
-    pred, error = MODEL.predict(CONN, flNum, date, originAirportId)
-    if pred != None:
+    data, error = MODEL.predict(CONN, flNum, date, originAirportId)
+    if data != None:
         error = None
-    return pred, error
+    return data, error
 
 tests = [("DL472", "JFK"), ("AA33", "JFK"), ("B6123", "JFK"), ("NK224", "ORD"), ("UA1166", "ORD"), ("UA116", "BLA"), ("AA33", "ORD")]
 

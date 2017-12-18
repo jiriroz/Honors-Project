@@ -1,5 +1,6 @@
 import csv
 import math
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import os, sys
@@ -22,36 +23,121 @@ LOGGING = False
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def main():
-
-    nTrain = 300
+    """
+    #fileAirports = open(os.path.join("data/tablesTrain.p", pFile), "rb")
+    #tables = pickle.load(fileAirports)
+    print ("Temporal linear")
+    nTrain = 3000000
     nTest = int(nTrain/2)
-    model = Model("temporalPoly15All", ARR_DELAY, [])
-    model.temporalModel("train", None, nTrain, window=15, train=True, fit=False)
-    mse = model.temporalModel("val", None, nTest, window=15, train=False, fit=True)
+    model = Model("temporalLinear30All", ARR_DELAY, [])
+    model.temporalModel("train", None, nTrain, window=30, train=True, fit=False)
+    mse = model.temporalModel("val", None, nTest, window=30, train=False, fit=True)
+    model.save()
     print (mse)
+    """
+
+
+    """
+    n = 10
+    model = Model("plotting", "ARR_DELAY", [])
+    model.plot("train", None, n)
+    model = Model("expSmooth", "ARR_DELAY", [])
+    mse = model.timeSeriesModel("train", None, 200000, train=False, fit=True)
+    print ("Normal exp smooth")
+    print (mse)
+    """
+    
+
 
 class Model(object):
     def __init__(self, name, yIndex, features, load=False):
         self.yIndex = yIndex
         self.name = name
         self.features = features
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        self.idToAirport = pickle.load(open(os.path.join(BASE_DIR, "keys/airportCodesReverse.p"), "rb"))
         if load:
             self.load()
 
     def save(self):
-        pickle.dump(self.regr, open(os.path.join(BASE_DIR, "models/{}.p".format(self.name)), "wb"))
+        name = "temporalPoly15Exp"
+        pickle.dump(self.regr2, open(os.path.join(BASE_DIR, "models/{}.p".format(name)), "wb"))
+        name = "temporalPoly15ExpDow"
+        pickle.dump(self.regr3, open(os.path.join(BASE_DIR, "models/{}.p".format(name)), "wb"))
+
 
     def load(self):
         self.regr = pickle.load(open(os.path.join(BASE_DIR, "models/{}.p".format(self.name)), "rb"))
 
+    def plot(self, db, table, nExamples):
+        fields = ["ARR_DELAY", "PREV_FLIGHT", "CRS_DEP_TIME"]
+        conn, tables, total = connectToDB(db)
+        rows, rowsY = [], []
+        tablePerRow = []
+        for row, tblName in dataIterator(table, nExamples, fields, conn, tables, total):
+            x, y = preprocess(row, fields, 0)
+            rows.append(x)
+            rowsY.append(y)
+            if table == None:
+                tablePerRow.append(tblName)
+
+        """
+        byDow = [[] for i in range(24)]
+        for i in range(len(rows)):
+            byDow[int(rows[i][1]) - 1].append(rowsY[i])
+        #for x in byDow:
+        #    print (x)
+
+        avgs = [np.mean(x) for x in byDow]
+        print (avgs)
+        font = {'family' : 'normal',
+                'size'   : 14}
+
+        matplotlib.rc('font', **font)
+
+        barwidth = 0.5
+        index = np.arange(24)
+        rects1 = plt.bar(index, avgs, barwidth,
+                 alpha=0.8,
+                 color='#18647D',
+                 edgecolor="none")
+        plt.title("Average delay per departure hour")
+        plt.xticks(index + barwidth / 2, np.arange(24))
+        plt.ylabel("Average delay")
+        plt.show()
+        """
+
+        for i in range(len(rows)):
+            tblName = table
+            if table == None:
+                tblName = tablePerRow[i]
+            prev = getPrevFlights(conn, tblName, int(rows[i][0]), -1, ["ARR_DELAY"])
+            seq = [d[0] for d in prev]
+            s, S = expSmooth(0.2, seq)
+            plt.ylabel("Delay in minutes")
+            plt.xlabel("Past flights")
+            plt.title("Exponential smoothing")
+            plt.tick_params(
+                axis='x',          # changes apply to the x-axis
+                which='both',      # both major and minor ticks are affected
+                bottom='off',      # ticks along the bottom edge are off
+                top='off',         # ticks along the top edge are off
+                labelbottom='off')
+            plt.plot(seq, color="#006498", linewidth=2)
+            plt.plot(S, 'r', linewidth=3)
+            plt.show()
+            
+
+
     def predict(self, conn, flNum, date, originAirportId):
-        if self.name == "temporalLinear15All":
+        # Return (delay, origin, dest, ...), error
+        if self.name == "temporalLinear30All":
             return self.temporalModelPredict(conn, flNum, date, originAirportId, window=15, degree=1)
         elif self.name == "temporalPoly15All":
             return self.temporalModelPredict(conn, flNum, date, originAirportId, window=15, degree=2)
 
     def timeSeriesModel(self, db, table, nExamples, alpha=1, gamma=1, train=False, fit=True):
-        fields = ["ARR_DELAY", "PREV_FLIGHT"]
+        fields = ["ARR_DELAY", "PREV_FLIGHT", "DAY_OF_WEEK"]
         conn, tables, total = connectToDB(db)
         rows, rowsY = [], []
         tablePerRow = []
@@ -63,20 +149,36 @@ class Model(object):
                 tablePerRow.append(tblName)
 
         X, Y = [], []
+        X_poly, Y_poly = [], []
+        X_polyexp = []
+        X_polyexp_dow = []
+        DOW = []
+        DOW_Y = []
         for i in range(len(rows)):
             tblName = table
             if table == None:
                 tblName = tablePerRow[i]
-            prev = getPrevFlights(conn, tblName, rows[i][0], -1, ["ARR_DELAY", "DAY_OF_WEEK"])
+            
+            prev = getPrevFlights(conn, tblName, int(rows[i][0]), -1, ["ARR_DELAY", "DAY_OF_WEEK"])
             seq = [d[0] for d in prev]
-            days = [d[1] for d in prev]
+            days = [int(d[1]) for d in prev]
             if len(prev) > 1:
                 X.append([d[0] for d in prev])
                 Y.append(rowsY[i])
-            if i < 5 and fit:
-                com = 1 / alpha - 1
-                seqpd = pd.DataFrame(data=seq)
-                ewma = pd.ewma(seqpd, com=com)
+                DOW.append(days)
+                DOW_Y.append(int(rows[i][1]))
+            if len(prev) >= 15:
+                X_poly.append([d[0] for d in prev[:15]])
+                X_polyexp.append([d[0] for d in prev[:15]])
+                X_polyexp_dow.append([d[0] for d in prev[:15]])
+                Y_poly.append(rowsY[i])
+            if len(prev) > 1 and len(prev) < 15:
+                X_polyexp.append([])
+                X_polyexp_dow.append([])
+            #if i < 5 and fit:
+                #com = 1 / alpha - 1
+                #seqpd = pd.DataFrame(data=seq)
+                #ewma = pd.ewma(seqpd, com=com)
                 #plt.plot(seq, linewidth=2)
                 #plt.plot(pd.ewma(seq, com=com), linewidth=2)
                 #plt.plot(days, seq, "o")
@@ -85,25 +187,63 @@ class Model(object):
         X = np.array(X)
         Y = np.array(Y)
 
-        mse1 = 0
-        mse2 = 0
-        if fit and len(X) > 0:
+        mse0 = 0 #Based on dow
+        mse1 = 0 #pure exp smoothing
+        mse2 = 0 #pure last 10 flights poly
+        mse3 = 0 #exp smooting + last 10 flights poly
+        mse4 = 0 #exp smooting all days + exp smoothing same dow + last 10 flights poly
+        if len(X) > 0:
             for i in range(len(X)):
                 x = X[i]
                 y = Y[i]
-                xSmooth1 = expSmooth(alpha, x)
-                xSmooth2 = expSmooth(alpha, x, order=2, gamma=gamma)
-                mse1 += (xSmooth1 - y) ** 2
-                mse2 += (xSmooth2 - y) ** 2
-                #plt.plot(xSmooth, linewidth=1.5)
-                #plt.show()
+                xSmooth = expSmooth(0.2, x)
+                mse1 += (xSmooth - y) ** 2
+                sameDay = [x[j] for j in range(len(x)) if DOW[i][j] == DOW_Y[i]]
+                if sameDay == []:
+                    xSmoothDay = xSmooth
+                else:
+                    xSmoothDay = expSmooth(0.4, sameDay)
+                if X_polyexp[i] != []:
+                    X_polyexp[i].append(xSmooth)
+                if X_polyexp_dow[i] != []:
+                    X_polyexp_dow[i].append(xSmooth)
+                    X_polyexp_dow[i].append(xSmoothDay)
+                mse0 += (xSmoothDay - y) ** 2
             mse1 /= len(X)
-            mse2 /= len(X)
+            mse0 /= len(X)
+            return mse1
+        X_polyexp = [x for x in X_polyexp if x != []]
+        X_polyexp_dow = [x for x in X_polyexp_dow if x != []]
+        X_poly = np.array(X_poly)
+        X_polyexp = np.array(X_polyexp)
+        X_polyexp_dow = np.array(X_polyexp_dow)
+        Y_poly = np.array(Y_poly)
 
+        degree = 2
+        if degree > 1:
+            poly = PolynomialFeatures(degree=degree)
+            X_poly = poly.fit_transform(X_poly)
+            X_polyexp = poly.fit_transform(X_polyexp)
+            X_polyexp_dow = poly.fit_transform(X_polyexp_dow)
         if train:
-            pass
+            self.regr1 = linear_model.LinearRegression()
+            self.regr1.fit(X_poly, Y_poly)
+
+            self.regr2 = linear_model.LinearRegression()
+            self.regr2.fit(X_polyexp, Y_poly)
+
+            self.regr3 = linear_model.LinearRegression()
+            self.regr3.fit(X_polyexp_dow, Y_poly)
         if fit:
-            return mse1, mse2
+            pred = self.regr1.predict(X_poly)
+            mse2 = mean_squared_error(Y_poly, pred)
+
+            pred = self.regr2.predict(X_polyexp)
+            mse3 = mean_squared_error(Y_poly, pred)
+
+            pred = self.regr3.predict(X_polyexp_dow)
+            mse4 = mean_squared_error(Y_poly, pred)
+            return mse1, mse2, mse3, mse4
 
 
     def temporalModel(self, db, table, nExamples, window=1, degree=1, train=False, fit=True):
@@ -148,12 +288,14 @@ class Model(object):
     def temporalModelPredict(self, conn, flNum, date, origin, window=15, degree=1):
         tblName = "airport{}".format(origin)
 
-        query = "SELECT PREV_FLIGHT FROM {} WHERE FL_NUM='{}' ORDER BY YEAR DESC, MONTH DESC, DAY_OF_MONTH DESC LIMIT 1"
+        query = "SELECT PREV_FLIGHT, DEST_AIRPORT_ID FROM {} WHERE FL_NUM='{}' ORDER BY YEAR DESC, MONTH DESC, DAY_OF_MONTH DESC LIMIT 1"
         cursor = conn.execute(query.format(tblName, flNum))
         res = cursor.fetchone()
         if res == None:
             return None, "Flight doesn't exist at this airport."
         prevRowId = res[0]
+        dest = res[1]
+        destAirport = self.idToAirport[dest]
 
         prev = getPrevFlights(conn, tblName, prevRowId, window, ["ARR_DELAY"])
         prev = [d[0] for d in prev]
@@ -164,7 +306,7 @@ class Model(object):
             poly = PolynomialFeatures(degree=degree)
             X = poly.fit_transform(X)
         pred = self.regr.predict(X)
-        return pred[0], ""
+        return (pred[0], destAirport), ""
 
     def linearModel(self, db, table, nExamples, train=False, fit=True):
         conn, tables, total = connectToDB(db)
@@ -341,13 +483,23 @@ def expSmooth(alpha, x, order=1, gamma=0):
     S = np.empty(len(x), float)
     b = np.empty(len(x), float)
     S[0] = x[0]
-    b[0] = x[1] - x[0]
+    if order > 1:
+        b[0] = x[1] - x[0]
+    #cutoff = 1.4
+    cutoff = 100
+    maxVal = 20
     for j in range(1, len(x)):
         if order == 2:
             S[j] = alpha * x[j-1] + (1-alpha) * (S[j-1] + b[j-1])
             b[j] = gamma * (S[j] - S[j-1]) + (1-gamma) * b[j-1]
         else:
-            S[j] = alpha * x[j-1] + (1-alpha) * S[j-1]
+            # Don't consider values that are cutoff times the max seen so far
+            prevVal = x[j - 1]
+            if cutoff:
+                if x[j - 1] > cutoff * maxVal:
+                    prevVal = maxVal
+            S[j] = alpha * prevVal + (1-alpha) * S[j-1]
+            maxVal = max(maxVal, prevVal)
     if order == 2:
         return S[-1] + b[-1]
     else:

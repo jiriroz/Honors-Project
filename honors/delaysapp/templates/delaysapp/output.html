@@ -17,36 +17,42 @@
 
 <div class="top-offset-output row"></div>
 
+
+<div style="background-color: #595959 !important; color:white" class="jumbotron">
 <h2 class="text-center"> {{ flNum }} </h3>
-<h1 class="text-center">Your estimated delay is {{ delay }} minutes.</h1>
+<h1 class="text-center">Your estimated delay is <b>{{ delay }} minutes</b>.</h1>
+</div>
 
-<div class="mid-offset-output row"></div>
+<div style="text-align:center">
+<img src="http://www.i2symbol.com/images/symbols/popular/airplane_u2708_icon_256x256.png">
+</div>
 
+<b>
 <div class="row">
     <div class="col-md-6">
-        <span class="origin">Origin</span>
+        <span class="origin">{{ origin }}</span>
     </div>
     <div class="col-md-6 pull-right" style="text-align:right">
-        <span class="destination">Destination</span>
+        <span class="destination">{{ destination }}</span>
     </div>
 </div>
 
-<div class="duration-delay text-center">Duration + delay</div>
+<div class="row">
+    <div class="col-md-6">
+        <span class="origin">{{ originlong }}</span>
+    </div>
+    <div class="col-md-6 pull-right" style="text-align:right">
+        <span class="destination">{{ destlong }}</span>
+    </div>
+</div>
+</b>
+
 
 <svg height="50" width="100%">
   <line x1="25%" y1="25" x2="75%" y2="25" style="stroke:rgb(100,100,100);stroke-width:5" />
   <circle cx="25%" cy="25" r="20" style="stroke:rgb(100,100,100);stroke-width:5;fill:white" />
   <circle cx="75%" cy="25" r="20" style="stroke:rgb(100,100,100);stroke-width:5;fill:white" />
 </svg>
-
-<div class="row">
-    <div class="col-md-6">
-        <span class="origin">Departure time</span>
-    </div>
-    <div class="col-md-6 pull-right" style="text-align:right">
-        <span class="destination">Arrival time</span>
-    </div>
-</div>
 
 {% if error %}<p><strong>{{ error }}</strong></p>{% endif %}
 

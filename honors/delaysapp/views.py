@@ -9,6 +9,11 @@ from django.urls import reverse
 from .models import Question
 import delaysapp.engine.modelapi as modelapi
 
+import pickle
+import os
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+AIRPORTDESC = pickle.load(open(os.path.join(BASE_DIR, "engine/keys/airportDesc.p"), "rb"))
+
 def queryDelays(request):
     template = loader.get_template("delaysapp/input.html")
     return HttpResponse(template.render(dict(), request))
@@ -16,14 +21,18 @@ def queryDelays(request):
 def computeDelay(request):
     try:
         flNum = request.POST["flNum"]
-        airport = request.POST["airport"]
+        origin = request.POST["airport"]
     except KeyError:
         return HttpResponse("You didn't select a choice")
-    delay, error = modelapi.getDelayForFlight(flNum, airport, datetime.date(2017, 12, 12))
+    data, error = modelapi.getDelayForFlight(flNum, origin, datetime.date(2017, 12, 12))
+    delay, dest = data
     context = {
         "flNum": flNum,
-        "airport": airport,
-        "delay": delay,
+        "origin": origin,
+        "destination": dest,
+        "originlong":AIRPORTDESC[origin].split(":")[0],
+        "destlong":AIRPORTDESC[dest].split(":")[0],
+        "delay": round(delay, 2),
         "error": error
     }
     template = loader.get_template("delaysapp/output.html")

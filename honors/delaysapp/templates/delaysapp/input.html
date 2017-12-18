@@ -28,12 +28,12 @@
 <div class="top-offset-input row"></div>
 
 
-<h1 class="text-center" id="header">Predict Airline Delays</h1>
+<h1 style="font-size:3.5em !important" class="text-center" id="header">Predict Airline Delays</h1>
 
 {% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
 
 
-<div class="jumbotron">
+<div class="jumbotron" style="background-color: #595959 !important; color:white">
 
 <form action="{% url 'compute' %}" method="post">
 {% csrf_token %}
